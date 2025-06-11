@@ -24,16 +24,16 @@ export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardPro
             <div className="flex-grow min-w-0">
               <CardTitle className="text-xl font-headline font-semibold text-primary break-words">{objective.description}</CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-1">
-                {objective.keyResults.length} Key Result(s)
+                {objective.keyResults.length} نتیجه کلیدی
               </CardDescription>
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0 flex-col sm:flex-row">
             <Button variant="outline" size="sm" onClick={() => onEdit(objective)} className="w-full sm:w-auto">
-              <Edit3 className="w-4 h-4 mr-2" /> Edit
+              <Edit3 className="w-4 h-4 ml-2" /> ویرایش
             </Button>
             <Button variant="default" size="sm" onClick={() => onCheckIn(objective)} className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto">
-              <CalendarCheck2 className="w-4 h-4 mr-2" /> Check-In
+              <CalendarCheck2 className="w-4 h-4 ml-2" /> ثبت پیشرفت
             </Button>
           </div>
         </div>
@@ -45,9 +45,9 @@ export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardPro
               <AccordionItem value={`kr-${index}`} key={kr.id} className="border bg-card rounded-lg shadow-sm overflow-hidden">
                 <AccordionTrigger className="p-4 hover:no-underline focus:no-underline hover:bg-secondary/30 data-[state=open]:bg-secondary/30">
                   <div className="flex justify-between items-center w-full">
-                    <span className="font-medium text-left text-foreground text-sm sm:text-base flex-grow break-words pr-2">{kr.description}</span>
+                    <span className="font-medium text-foreground text-sm sm:text-base flex-grow break-words pl-2">{kr.description}</span>
                     <div className="flex items-center flex-shrink-0">
-                      <span className="text-sm text-muted-foreground mr-2">{kr.progress}%</span>
+                      <span className="text-sm text-muted-foreground ml-2">{kr.progress}%</span>
                       <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 accordion-chevron" />
                     </div>
                   </div>
@@ -60,7 +60,7 @@ export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardPro
           </Accordion>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-6 bg-muted/30 rounded-md">
-            No key results defined for this objective yet. Click 'Edit' to add some.
+            هنوز نتیجه کلیدی برای این هدف تعریف نشده است. برای افزودن، روی «ویرایش» کلیک کنید.
           </p>
         )}
       </CardContent>

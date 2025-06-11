@@ -12,11 +12,11 @@ export function AppHeader({ onAddObjective }: AppHeaderProps) {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Target className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-headline font-semibold text-foreground">OKR Tracker</h1>
+          <h1 className="text-2xl font-headline font-semibold text-foreground">ردیاب OKR</h1>
         </div>
         <Button onClick={onAddObjective} className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Objective
+          <Plus className="w-4 h-4 ml-2" />
+          افزودن هدف
         </Button>
       </div>
     </header>

@@ -33,8 +33,8 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
   const form = useForm<ObjectiveFormData>({
     resolver: zodResolver(objectiveFormSchema),
     defaultValues: initialData 
-      ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [DEFAULT_KEY_RESULT] }
-      : { description: '', keyResults: [DEFAULT_KEY_RESULT] },
+      ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [{...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'}] }
+      : { description: '', keyResults: [{...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'}] },
   });
 
   const { fields: krFields, append: appendKr, remove: removeKr } = useFieldArray({
@@ -44,50 +44,51 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
 
   React.useEffect(() => {
     if (isOpen) {
+      const defaultKRWithTranslatedConfidence = {...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'};
       form.reset(initialData 
-        ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [DEFAULT_KEY_RESULT] }
-        : { description: '', keyResults: [DEFAULT_KEY_RESULT] }
+        ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [defaultKRWithTranslatedConfidence] }
+        : { description: '', keyResults: [defaultKRWithTranslatedConfidence] }
       );
     }
   }, [isOpen, initialData, form.reset]);
 
   const processSubmit = (data: ObjectiveFormData) => {
     onSubmit(data);
-    onClose(); // Ensure dialog closes on successful submit
+    onClose(); 
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="font-headline">{initialData ? 'Edit Objective' : 'Add New Objective'}</DialogTitle>
+          <DialogTitle className="font-headline">{initialData ? 'ویرایش هدف' : 'افزودن هدف جدید'}</DialogTitle>
           <DialogDescription>
-            Define your objective and its measurable key results and initiatives.
+            هدف خود و نتایج کلیدی و اقدامات قابل اندازه‌گیری آن را تعریف کنید.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>
-          <ScrollArea className="max-h-[calc(80vh-150px)] p-1 pr-5">
+          <ScrollArea className="max-h-[calc(80vh-150px)] p-1 pl-5"> {/* Changed pr-5 to pl-5 for RTL */}
             <div className="space-y-6 py-2 px-1">
               <div>
-                <Label htmlFor="objectiveDescription" className="font-semibold text-base">Objective Description</Label>
+                <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
                 <Textarea
                   id="objectiveDescription"
                   {...form.register('description')}
                   className="mt-1"
                   rows={3}
-                  placeholder="e.g., Revolutionize customer support experience"
+                  placeholder="مثال: ایجاد تحول در تجربه پشتیبانی مشتری"
                 />
                 {form.formState.errors.description && <p className="text-destructive text-sm mt-1">{form.formState.errors.description.message}</p>}
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-3">Key Results</h3>
+                <h3 className="text-lg font-semibold mb-3">نتایج کلیدی</h3>
                 {krFields.map((krItem, krIndex) => (
                   <Card key={krItem.id} className="mb-4 p-4 border rounded-lg shadow-sm bg-card">
                     <CardContent className="p-0 space-y-4">
                       <div className="flex justify-between items-center mb-2">
                         <Label htmlFor={`keyResults.${krIndex}.description`} className="font-medium text-foreground">
-                          Key Result #{krIndex + 1}
+                          نتیجه کلیدی #{krIndex + 1}
                         </Label>
                         {krFields.length > 1 && (
                           <Button type="button" variant="ghost" size="icon" onClick={() => removeKr(krIndex)} className="text-destructive hover:bg-destructive/10 h-8 w-8">
@@ -98,14 +99,14 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                       <Textarea
                         id={`keyResults.${krIndex}.description`}
                         {...form.register(`keyResults.${krIndex}.description`)}
-                        placeholder="e.g., Reduce average response time by 20%"
+                        placeholder="مثال: کاهش میانگین زمان پاسخگویی به میزان ۲۰٪"
                         rows={2}
                       />
                       {form.formState.errors.keyResults?.[krIndex]?.description && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.description?.message}</p>}
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor={`keyResults.${krIndex}.progress`}>Progress (%)</Label>
+                          <Label htmlFor={`keyResults.${krIndex}.progress`}>پیشرفت (٪)</Label>
                            <Controller
                               name={`keyResults.${krIndex}.progress`}
                               control={form.control}
@@ -114,7 +115,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                                   type="number"
                                   value={field.value ?? 0}
                                   onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} 
-                                  placeholder="0-100"
+                                  placeholder="۰-۱۰۰"
                                   className="mt-1"
                                   min="0" max="100"
                                 />
@@ -123,14 +124,14 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                           {form.formState.errors.keyResults?.[krIndex]?.progress && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.progress?.message}</p>}
                         </div>
                         <div>
-                          <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>Confidence Level</Label>
+                          <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
                           <Controller
                             name={`keyResults.${krIndex}.confidenceLevel`}
                             control={form.control}
                             render={({ field }) => (
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger className="mt-1">
-                                  <SelectValue placeholder="Select confidence" />
+                                  <SelectValue placeholder="انتخاب سطح اطمینان" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {CONFIDENCE_LEVELS.map(level => (
@@ -150,17 +151,17 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                 ))}
                  {form.formState.errors.keyResults?.root && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.root.message}</p>}
                  {form.formState.errors.keyResults?.message && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.message}</p>}
-                <Button type="button" variant="outline" onClick={() => appendKr(DEFAULT_KEY_RESULT)} className="mt-2 w-full">
-                  <PlusCircle className="w-4 h-4 mr-2" /> Add Key Result
+                <Button type="button" variant="outline" onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} className="mt-2 w-full">
+                  <PlusCircle className="w-4 h-4 ml-2" /> افزودن نتیجه کلیدی
                 </Button>
               </div>
             </div>
           </ScrollArea>
           <DialogFooter className="mt-8 pt-6 border-t">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">انصراف</Button>
             </DialogClose>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">Save Objective</Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90">ذخیره هدف</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -176,12 +177,12 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
 
   return (
     <div className="mt-4 pt-4 border-t border-border/60 border-dashed">
-      <h4 className="text-md font-medium mb-3 text-foreground">Initiatives</h4>
+      <h4 className="text-md font-medium mb-3 text-foreground">اقدامات</h4>
       {fields.map((item, initiativeIndex) => (
         <div key={item.id} className="p-3 mb-3 border rounded-md bg-muted/30 space-y-2 shadow-sm">
           <div className="flex justify-between items-center">
              <Label htmlFor={`keyResults.${krIndex}.initiatives.${initiativeIndex}.description`} className="text-sm font-normal text-muted-foreground">
-              Initiative #{initiativeIndex + 1}
+              اقدام #{initiativeIndex + 1}
             </Label>
             <Button type="button" variant="ghost" size="icon" onClick={() => remove(initiativeIndex)} className="text-destructive hover:bg-destructive/10 h-7 w-7">
               <Trash2 className="w-3.5 h-3.5" />
@@ -190,7 +191,7 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
           <Input
             id={`keyResults.${krIndex}.initiatives.${initiativeIndex}.description`}
             {...register(`keyResults.${krIndex}.initiatives.${initiativeIndex}.description`)}
-            placeholder="e.g., Implement new chatbot flow"
+            placeholder="مثال: پیاده‌سازی جریان جدید چت‌بات"
             className="text-sm bg-card"
           />
           {errors.keyResults?.[krIndex]?.initiatives?.[initiativeIndex]?.description && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex]?.initiatives[initiativeIndex]?.description?.message}</p>}
@@ -201,7 +202,7 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger className="text-sm h-9 bg-card">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="انتخاب وضعیت" />
                 </SelectTrigger>
                 <SelectContent>
                   {INITIATIVE_STATUSES.map(status => (
@@ -214,8 +215,8 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
           {errors.keyResults?.[krIndex]?.initiatives?.[initiativeIndex]?.status && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex]?.initiatives[initiativeIndex]?.status?.message}</p>}
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={() => append({ description: '', status: 'Not Started' })} className="mt-1 w-full">
-        <PlusCircle className="w-4 h-4 mr-2" /> Add Initiative
+      <Button type="button" variant="outline" size="sm" onClick={() => append({ description: '', status: 'شروع نشده' })} className="mt-1 w-full">
+        <PlusCircle className="w-4 h-4 ml-2" /> افزودن اقدام
       </Button>
     </div>
   );

@@ -60,7 +60,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
       return updatedKrData ? { ...originalKr, progress: updatedKrData.progress, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
     });
     onUpdateObjective({ ...objective, keyResults: updatedKeyResults });
-    toast({ title: "Check-in saved!", description: "Your OKR progress has been updated." });
+    toast({ title: "ثبت پیشرفت ذخیره شد!", description: "پیشرفت OKR شما به‌روزرسانی شد." });
   };
 
   const handleGetAiSuggestions = async () => {
@@ -80,20 +80,20 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
       const result = await getOkrImprovementSuggestionsAction(currentObjectiveState);
       if (result.suggestions && result.suggestions.length > 0 && !(result.suggestions.length === 1 && result.suggestions[0].startsWith("Error:"))) {
         setAiSuggestions(result.suggestions);
-        toast({ title: "AI Suggestions Ready!", description: "Review the suggestions to improve your OKRs.", duration: 5000 });
+        toast({ title: "پیشنهادهای هوش مصنوعی آماده است!", description: "پیشنهادها را برای بهبود OKRهای خود بررسی کنید.", duration: 5000 });
       } else if (result.suggestions && result.suggestions.length === 1 && result.suggestions[0].startsWith("Error:")) {
-         setAiSuggestions([result.suggestions[0]]);
-         toast({ variant: "destructive", title: "AI Suggestion Error", description: result.suggestions[0], duration: 5000});
+         setAiSuggestions([result.suggestions[0] === "An error occurred while fetching suggestions. Please try again later." ? "در دریافت پیشنهادها خطایی روی داد. لطفاً بعداً دوباره تلاش کنید." : result.suggestions[0] ]);
+         toast({ variant: "destructive", title: "خطای پیشنهاد هوش مصنوعی", description: result.suggestions[0] === "An error occurred while fetching suggestions. Please try again later." ? "در دریافت پیشنهادها خطایی روی داد. لطفاً بعداً دوباره تلاش کنید." : result.suggestions[0], duration: 5000});
       }
        else {
-        setAiSuggestions(["No specific suggestions at this time. Keep up the great work!"]);
-        toast({ title: "AI Suggestions", description: "No specific suggestions at this time.", duration: 3000 });
+        setAiSuggestions(["در حال حاضر پیشنهاد خاصی وجود ندارد. به کار خوب خود ادامه دهید!"]);
+        toast({ title: "پیشنهادهای هوش مصنوعی", description: "در حال حاضر پیشنهاد خاصی وجود ندارد.", duration: 3000 });
       }
     } catch (error) {
       console.error("Error fetching AI suggestions:", error);
-      const errorMessage = "There was an error fetching suggestions. Please try again.";
+      const errorMessage = "در دریافت پیشنهادها خطایی روی داد. لطفاً دوباره تلاش کنید.";
       setAiSuggestions([errorMessage]);
-      toast({ variant: "destructive", title: "Error", description: errorMessage, duration: 5000 });
+      toast({ variant: "destructive", title: "خطا", description: errorMessage, duration: 5000 });
     } finally {
       setIsLoadingAiSuggestions(false);
     }
@@ -103,14 +103,14 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="font-headline">Objective Check-In</DialogTitle>
+          <DialogTitle className="font-headline">ثبت پیشرفت هدف</DialogTitle>
           <DialogDescription>
-            For: <span className="font-medium text-foreground">{objective.description}</span> <br/>
-            Update progress and confidence for your key results. Then, get AI-powered suggestions.
+            برای: <span className="font-medium text-foreground">{objective.description}</span> <br/>
+            پیشرفت و سطح اطمینان نتایج کلیدی خود را به‌روز کنید. سپس، پیشنهادهای مبتنی بر هوش مصنوعی دریافت کنید.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(processCheckIn)}>
-          <ScrollArea className="max-h-[calc(70vh-200px)] p-1 pr-4">
+          <ScrollArea className="max-h-[calc(70vh-200px)] p-1 pl-4"> {/* Changed pr-4 to pl-4 for RTL */}
             <div className="space-y-6 py-2">
               {watch('keyResults').map((kr, index) => {
                 const originalKr = objective.keyResults.find(k => k.id === kr.id);
@@ -120,7 +120,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
                     <h4 className="font-medium mb-3 text-foreground">{originalKr.description}</h4>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor={`krProgress-${index}`} className="text-sm">Progress: {watch(`keyResults.${index}.progress`)}%</Label>
+                        <Label htmlFor={`krProgress-${index}`} className="text-sm">پیشرفت: {watch(`keyResults.${index}.progress`)}٪</Label>
                         <Controller
                           name={`keyResults.${index}.progress`}
                           control={control}
@@ -131,12 +131,13 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
                               value={[controllerField.value]}
                               onValueChange={(value) => controllerField.onChange(value[0])}
                               className="mt-1.5"
+                              dir="rtl" // Explicitly set dir for slider
                             />
                           )}
                         />
                       </div>
                       <div>
-                        <Label htmlFor={`krConfidence-${index}`} className="text-sm">Confidence Level</Label>
+                        <Label htmlFor={`krConfidence-${index}`} className="text-sm">سطح اطمینان</Label>
                         <Controller
                           name={`keyResults.${index}.confidenceLevel`}
                           control={control}
@@ -144,9 +145,10 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
                             <Select
                               onValueChange={controllerField.onChange}
                               value={controllerField.value}
+                              dir="rtl" // Explicitly set dir for select
                             >
                               <SelectTrigger id={`krConfidence-${index}`} className="mt-1.5">
-                                <SelectValue placeholder="Select confidence" />
+                                <SelectValue placeholder="انتخاب سطح اطمینان" />
                               </SelectTrigger>
                               <SelectContent>
                                 {CONFIDENCE_LEVELS.map(level => (
@@ -166,10 +168,10 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
 
           {aiSuggestions.length > 0 && (
             <Alert className="mt-6 bg-accent/10 border-accent/40 text-accent-foreground shadow">
-              <Sparkles className="h-5 w-5 text-accent" />
-              <AlertTitle className="font-headline text-accent">AI-Powered Suggestions</AlertTitle>
+              <Sparkles className="h-5 w-5 text-accent ml-3" /> {/* Added ml for RTL spacing */}
+              <AlertTitle className="font-headline text-accent">پیشنهادهای مبتنی بر هوش مصنوعی</AlertTitle>
               <AlertDescription className="text-accent-foreground/90">
-                <ul className="list-disc pl-5 space-y-1.5 mt-2 text-sm">
+                <ul className="list-disc pr-5 space-y-1.5 mt-2 text-sm"> {/* Changed pl-5 to pr-5 for RTL */}
                   {aiSuggestions.map((suggestion, i) => <li key={i}>{suggestion}</li>)}
                 </ul>
               </AlertDescription>
@@ -178,16 +180,16 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
         
           <DialogFooter className="mt-8 pt-6 border-t gap-2">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Close</Button>
+              <Button type="button" variant="outline">بستن</Button>
             </DialogClose>
-            <Button type="submit" variant="outline">Save Check-In</Button>
+            <Button type="submit" variant="outline">ذخیره ثبت پیشرفت</Button>
             <Button type="button" onClick={handleGetAiSuggestions} disabled={isLoadingAiSuggestions} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               {isLoadingAiSuggestions ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
               ) : (
-                <Lightbulb className="mr-2 h-4 w-4" />
+                <Lightbulb className="ml-2 h-4 w-4" />
               )}
-              Get AI Suggestions
+              دریافت پیشنهادهای هوش مصنوعی
             </Button>
           </DialogFooter>
         </form>

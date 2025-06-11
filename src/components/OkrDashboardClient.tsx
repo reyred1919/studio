@@ -15,42 +15,42 @@ const generateId = () => crypto.randomUUID();
 const initialObjectivesData: Objective[] = [
   {
     id: 'obj1_sample',
-    description: 'Enhance Product discoverability and user adoption for Q3',
+    description: 'بهبود قابلیت کشف محصول و پذیرش کاربر برای فصل سوم',
     keyResults: [
       {
         id: 'kr1_1_sample',
-        description: 'Increase organic sign-ups from content marketing by 25%',
+        description: 'افزایش ۲۵٪ ثبت‌نام‌های ارگانیک از طریق بازاریابی محتوا',
         progress: 30,
-        confidenceLevel: 'Medium',
+        confidenceLevel: 'متوسط',
         initiatives: [
-          { id: 'init1_1_1_sample', description: 'Publish 4 new high-quality blog posts', status: 'In Progress' },
-          { id: 'init1_1_2_sample', description: 'Optimize 10 existing articles for SEO', status: 'Not Started' },
+          { id: 'init1_1_1_sample', description: 'انتشار ۴ پست وبلاگ جدید با کیفیت بالا', status: 'در حال انجام' },
+          { id: 'init1_1_2_sample', description: 'بهینه‌سازی ۱۰ مقاله موجود برای SEO', status: 'شروع نشده' },
         ],
       },
       {
         id: 'kr1_2_sample',
-        description: 'Improve new user activation rate from 40% to 60%',
+        description: 'بهبود نرخ فعال‌سازی کاربران جدید از ۴۰٪ به ۶۰٪',
         progress: 15,
-        confidenceLevel: 'Low',
+        confidenceLevel: 'کم',
         initiatives: [
-          { id: 'init1_2_1_sample', description: 'Redesign onboarding flow', status: 'In Progress' },
-          { id: 'init1_2_2_sample', description: 'Implement in-app guided tours', status: 'Blocked' },
+          { id: 'init1_2_1_sample', description: 'طراحی مجدد جریان ورود کاربر', status: 'در حال انجام' },
+          { id: 'init1_2_2_sample', description: 'پیاده‌سازی تورهای راهنمای درون برنامه‌ای', status: 'مسدود شده' },
         ],
       },
     ],
   },
   {
     id: 'obj2_sample',
-    description: 'Strengthen operational efficiency and reduce overheads by Q4',
+    description: 'تقویت بهره‌وری عملیاتی و کاهش هزینه‌های سربار تا فصل چهارم',
     keyResults: [
       {
         id: 'kr2_1_sample',
-        description: 'Reduce average ticket resolution time by 15% (from 4h to 3.4h)',
+        description: 'کاهش ۱۵٪ میانگین زمان حل تیکت (از ۴ ساعت به ۳.۴ ساعت)',
         progress: 60,
-        confidenceLevel: 'High',
+        confidenceLevel: 'زیاد',
         initiatives: [
-          { id: 'init2_1_1_sample', description: 'Implement new internal KB for support agents', status: 'Completed' },
-          { id: 'init2_1_2_sample', description: 'Train support team on advanced troubleshooting', status: 'In Progress' },
+          { id: 'init2_1_1_sample', description: 'پیاده‌سازی پایگاه دانش داخلی جدید برای کارشناسان پشتیبانی', status: 'تکمیل شده' },
+          { id: 'init2_1_2_sample', description: 'آموزش تیم پشتیبانی در مورد عیب‌یابی پیشرفته', status: 'در حال انجام' },
         ],
       },
     ],
@@ -70,13 +70,19 @@ export default function OkrDashboardClient() {
 
   useEffect(() => {
     setIsMounted(true);
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives');
+    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa'); // Use a different key for Persian
     if (storedObjectives) {
       try {
         const parsedObjectives = JSON.parse(storedObjectives);
-        setObjectives(parsedObjectives);
+        // Basic validation to ensure structure compatibility if needed
+        if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
+           setObjectives(parsedObjectives);
+        } else {
+           console.warn("Stored Persian objectives have unexpected structure, resetting to initial.", parsedObjectives);
+           setObjectives(initialObjectivesData);
+        }
       } catch (error) {
-        console.error("Failed to parse objectives from localStorage", error);
+        console.error("Failed to parse Persian objectives from localStorage", error);
         setObjectives(initialObjectivesData); 
       }
     } else {
@@ -85,8 +91,10 @@ export default function OkrDashboardClient() {
   }, []);
 
   useEffect(() => {
-    if (isMounted) { // Only run after initial mount to prevent overwriting on SSR/first load
-        localStorage.setItem('okrTrackerData_objectives', JSON.stringify(objectives));
+    if (isMounted && objectives.length > 0) { 
+        localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
+    } else if (isMounted && objectives.length === 0) {
+        localStorage.removeItem('okrTrackerData_objectives_fa'); // Clear if no objectives
     }
   }, [objectives, isMounted]);
 
@@ -103,12 +111,12 @@ export default function OkrDashboardClient() {
 
   const handleManageObjectiveSubmit = (data: ObjectiveFormData) => {
     const processedObjective: Objective = {
-      id: data.id || editingObjective?.id || generateId(), // Use existing ID if editing, else generate new
+      id: data.id || editingObjective?.id || generateId(), 
       description: data.description,
       keyResults: data.keyResults.map(kr => ({
         id: kr.id || generateId(),
         description: kr.description,
-        progress: kr.progress ?? 0, // Ensure progress is a number
+        progress: kr.progress ?? 0, 
         confidenceLevel: kr.confidenceLevel,
         initiatives: kr.initiatives.map(init => ({
           id: init.id || generateId(),
@@ -118,14 +126,14 @@ export default function OkrDashboardClient() {
       })),
     };
 
-    if (editingObjective || data.id) { // If editing an existing objective
+    if (editingObjective || data.id) { 
       setObjectives(prev => prev.map(obj => obj.id === processedObjective.id ? processedObjective : obj));
-      toast({ title: "Objective Updated", description: `"${processedObjective.description}" has been successfully updated.` });
-    } else { // If adding a new objective
+      toast({ title: "هدف به‌روزرسانی شد", description: `هدف «${processedObjective.description}» با موفقیت به‌روزرسانی شد.` });
+    } else { 
       setObjectives(prev => [...prev, processedObjective]);
-      toast({ title: "Objective Added", description: `"${processedObjective.description}" has been successfully added.` });
+      toast({ title: "هدف اضافه شد", description: `هدف «${processedObjective.description}» با موفقیت اضافه شد.` });
     }
-    setEditingObjective(null); // Clear editing state
+    setEditingObjective(null); 
     setIsManageObjectiveDialogOpen(false);
   };
   
@@ -177,7 +185,7 @@ export default function OkrDashboardClient() {
         />
       )}
        <footer className="py-8 text-center text-sm text-muted-foreground border-t mt-12">
-         OKR Tracker &copy; {new Date().getFullYear()} - Focus on What Matters.
+         ردیاب OKR &copy; {new Date().getFullYear()} - روی آنچه مهم است تمرکز کنید.
       </footer>
     </div>
   );

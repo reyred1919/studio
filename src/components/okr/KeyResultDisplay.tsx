@@ -12,10 +12,10 @@ interface KeyResultDisplayProps {
 }
 
 const confidenceMeta: Record<ConfidenceLevel, { icon: React.ElementType, indicatorClass: string, textClass: string, label: string }> = {
-  'High': { icon: Smile, indicatorClass: 'bg-green-500', textClass: 'text-green-600', label: 'High' },
-  'Medium': { icon: Meh, indicatorClass: 'bg-yellow-500', textClass: 'text-yellow-600', label: 'Medium' },
-  'Low': { icon: Frown, indicatorClass: 'bg-orange-500', textClass: 'text-orange-600', label: 'Low' },
-  'At Risk': { icon: AlertTriangle, indicatorClass: 'bg-red-500', textClass: 'text-red-600', label: 'At Risk' },
+  'زیاد': { icon: Smile, indicatorClass: 'bg-green-500', textClass: 'text-green-600', label: 'زیاد' },
+  'متوسط': { icon: Meh, indicatorClass: 'bg-yellow-500', textClass: 'text-yellow-600', label: 'متوسط' },
+  'کم': { icon: Frown, indicatorClass: 'bg-orange-500', textClass: 'text-orange-600', label: 'کم' },
+  'در معرض خطر': { icon: AlertTriangle, indicatorClass: 'bg-red-500', textClass: 'text-red-600', label: 'در معرض خطر' },
 };
 
 export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
@@ -39,7 +39,7 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
       <CardContent className="pb-2 px-1">
         <div className="mb-3">
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
-            <span>Progress</span>
+            <span>پیشرفت</span>
             <span>{keyResult.progress}%</span>
           </div>
           <Progress value={keyResult.progress} className="h-2.5 rounded-full" indicatorClassName={`${confidence.indicatorClass} rounded-full`} />
@@ -51,7 +51,7 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
               <AccordionTrigger className="text-xs font-medium py-1.5 px-1 hover:no-underline hover:bg-secondary/50 rounded-md [&[data-state=open]>svg]:text-accent">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                  {keyResult.initiatives.length} Initiative(s)
+                  {keyResult.initiatives.length} اقدام
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2 pb-0 pl-1 pr-1">
