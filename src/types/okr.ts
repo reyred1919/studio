@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema } from '@/lib/schemas';
+import type { objectiveFormSchema, okrCycleSchema } from '@/lib/schemas';
 import type { ConfidenceLevel, InitiativeStatus } from '@/lib/constants';
 
 export interface Initiative {
@@ -22,4 +22,10 @@ export interface Objective {
   keyResults: KeyResult[];
 }
 
+export interface OkrCycle {
+  startDate: Date;
+  endDate: Date;
+}
+
 export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
+export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;

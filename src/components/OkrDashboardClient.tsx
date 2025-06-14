@@ -1,18 +1,21 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Objective, ObjectiveFormData, KeyResult, Initiative } from '@/types/okr';
+import type { Objective, ObjectiveFormData, KeyResult, Initiative, OkrCycle, OkrCycleFormData } from '@/types/okr';
 import type { ConfidenceLevel } from '@/lib/constants';
-// AppHeader is now part of AppShell, so we don't import it here directly for the main header
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
 import { ManageObjectiveDialog } from '@/components/okr/ManageObjectiveDialog';
+import { ManageOkrCycleDialog } from '@/components/okr/ManageOkrCycleDialog';
 import { CheckInModal } from '@/components/okr/CheckInModal';
 import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, AlertTriangle, Smile, Plus, Milestone, Play, ShieldX, Activity, XOctagon, CheckCircle2 } from 'lucide-react';
+import { Target, TrendingUp, AlertTriangle, Smile, Plus, CheckCircle2, Activity, XOctagon, Clock, Settings2 } from 'lucide-react';
+import { differenceInCalendarDays, format } from 'date-fns';
+import { faIR } from 'date-fns/locale';
 
 const generateId = () => crypto.randomUUID();
 
@@ -68,6 +71,8 @@ export default function OkrDashboardClient() {
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [currentObjectiveForCheckIn, setCurrentObjectiveForCheckIn] = useState<Objective | null>(null);
+  const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
+  const [isManageCycleDialogOpen, setIsManageCycleDialogOpen] = useState(false);
   const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -81,7 +86,6 @@ export default function OkrDashboardClient() {
         if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
            setObjectives(parsedObjectives);
         } else {
-           console.warn("Stored Persian objectives have unexpected structure, resetting to initial.", parsedObjectives);
            setObjectives(initialObjectivesData);
         }
       } catch (error) {
@@ -90,6 +94,21 @@ export default function OkrDashboardClient() {
       }
     } else {
        setObjectives(initialObjectivesData);
+    }
+
+    const storedCycle = localStorage.getItem('okrTrackerData_cycle_fa');
+    if (storedCycle) {
+      try {
+        const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
+        if (parsedCycle.startDate && parsedCycle.endDate) {
+          setOkrCycle({
+            startDate: new Date(parsedCycle.startDate),
+            endDate: new Date(parsedCycle.endDate),
+          });
+        }
+      } catch (error) {
+        console.error("Failed to parse OKR cycle from localStorage", error);
+      }
     }
   }, []);
 
@@ -101,23 +120,18 @@ export default function OkrDashboardClient() {
     }
   }, [objectives, isMounted]);
 
-  const summaryStats = useMemo(() => {
-    if (!objectives || objectives.length === 0) {
-      return {
-        totalObjectives: 0,
-        averageProgress: 0,
-        krsByConfidence: {
-          'زیاد': 0,
-          'متوسط': 0,
-          'کم': 0,
-          'در معرض خطر': 0,
-        } as Record<ConfidenceLevel, number>,
-        completedKeyResults: 0,
-        initiativesInProgress: 0,
-        initiativesBlocked: 0,
-      };
+  useEffect(() => {
+    if (isMounted && okrCycle) {
+      localStorage.setItem('okrTrackerData_cycle_fa', JSON.stringify({
+        startDate: okrCycle.startDate.toISOString(),
+        endDate: okrCycle.endDate.toISOString(),
+      }));
+    } else if (isMounted && !okrCycle) {
+      localStorage.removeItem('okrTrackerData_cycle_fa');
     }
+  }, [okrCycle, isMounted]);
 
+  const summaryStats = useMemo(() => {
     let totalProgressSum = 0;
     let totalKeyResultsCount = 0;
     let completedKeyResults = 0;
@@ -125,43 +139,61 @@ export default function OkrDashboardClient() {
     let initiativesBlocked = 0;
 
     const krsByConfidence: Record<ConfidenceLevel, number> = {
-      'زیاد': 0,
-      'متوسط': 0,
-      'کم': 0,
-      'در معرض خطر': 0,
+      'زیاد': 0, 'متوسط': 0, 'کم': 0, 'در معرض خطر': 0,
     };
 
     objectives.forEach(obj => {
       obj.keyResults.forEach(kr => {
         totalProgressSum += kr.progress;
         totalKeyResultsCount++;
-        if (kr.progress === 100) {
-          completedKeyResults++;
-        }
-        if (krsByConfidence[kr.confidenceLevel] !== undefined) {
-            krsByConfidence[kr.confidenceLevel]++;
-        }
+        if (kr.progress === 100) completedKeyResults++;
+        if (krsByConfidence[kr.confidenceLevel] !== undefined) krsByConfidence[kr.confidenceLevel]++;
         kr.initiatives.forEach(init => {
-          if (init.status === 'در حال انجام') {
-            initiativesInProgress++;
-          } else if (init.status === 'مسدود شده') {
-            initiativesBlocked++;
-          }
+          if (init.status === 'در حال انجام') initiativesInProgress++;
+          else if (init.status === 'مسدود شده') initiativesBlocked++;
         });
       });
     });
 
     const averageProgress = totalKeyResultsCount > 0 ? totalProgressSum / totalKeyResultsCount : 0;
 
+    let remainingDays: number | null = null;
+    let cycleElapsedPercentage: number = 0;
+    if (okrCycle && okrCycle.startDate && okrCycle.endDate) {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const cycleEndDate = new Date(okrCycle.endDate);
+      cycleEndDate.setHours(0,0,0,0);
+      const cycleStartDate = new Date(okrCycle.startDate);
+      cycleStartDate.setHours(0,0,0,0);
+
+      remainingDays = differenceInCalendarDays(cycleEndDate, today);
+      if (remainingDays < 0) remainingDays = 0;
+
+      const totalCycleDuration = differenceInCalendarDays(cycleEndDate, cycleStartDate);
+      if (totalCycleDuration > 0) {
+        const elapsedCycleDuration = differenceInCalendarDays(today, cycleStartDate);
+        cycleElapsedPercentage = Math.min(100, Math.max(0, (elapsedCycleDuration / totalCycleDuration) * 100));
+      } else if (today >= cycleEndDate) {
+        cycleElapsedPercentage = 100;
+      }
+    }
+
     return {
       totalObjectives: objectives.length,
       averageProgress: parseFloat(averageProgress.toFixed(1)),
-      krsByConfidence: krsByConfidence,
+      krsByConfidence,
       completedKeyResults,
       initiativesInProgress,
       initiativesBlocked,
+      remainingDays,
+      cycleElapsedPercentage,
+      cycleDates: okrCycle ? { 
+        start: format(okrCycle.startDate, "d MMMM yyyy", { locale: faIR }), 
+        end: format(okrCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
+      } : null
     };
-  }, [objectives]);
+  }, [objectives, okrCycle]);
 
 
   const handleAddObjectiveClick = () => {
@@ -211,15 +243,24 @@ export default function OkrDashboardClient() {
      setObjectives(prev => prev.map(obj => obj.id === updatedObjective.id ? updatedObjective : obj));
   };
 
+  const handleManageCycleSubmit = (data: OkrCycleFormData) => {
+    setOkrCycle({ startDate: data.startDate, endDate: data.endDate });
+  };
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <h2 className="text-2xl font-semibold font-headline text-foreground">داشبورد OKR</h2>
-        <Button onClick={handleAddObjectiveClick} className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 ml-2" />
-          افزودن هدف
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsManageCycleDialogOpen(true)} variant="outline">
+            <Settings2 className="w-4 h-4 ml-2" />
+            تنظیم چرخه OKR
+          </Button>
+          <Button onClick={handleAddObjectiveClick} className="bg-primary hover:bg-primary/90">
+            <Plus className="w-4 h-4 ml-2" />
+            افزودن هدف
+          </Button>
+        </div>
       </div>
 
       {isMounted && (
@@ -241,6 +282,23 @@ export default function OkrDashboardClient() {
             <CardContent>
               <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
               {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">روزهای باقیمانده چرخه</CardTitle>
+              <Clock className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {summaryStats.remainingDays !== null ? `${summaryStats.remainingDays} روز` : 'تنظیم نشده'}
+              </div>
+              {summaryStats.remainingDays !== null && okrCycle && (
+                <>
+                  <Progress value={summaryStats.cycleElapsedPercentage} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />
+                  {summaryStats.cycleDates && <p className="text-xs text-muted-foreground mt-1 text-center">{summaryStats.cycleDates.start} - {summaryStats.cycleDates.end}</p>}
+                </>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -321,6 +379,13 @@ export default function OkrDashboardClient() {
           onUpdateObjective={handleUpdateObjectiveAfterCheckIn}
         />
       )}
+
+      <ManageOkrCycleDialog
+        isOpen={isManageCycleDialogOpen}
+        onClose={() => setIsManageCycleDialogOpen(false)}
+        onSubmit={handleManageCycleSubmit}
+        initialData={okrCycle}
+      />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT } from './constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES } from './constants';
 
 export const initiativeSchema = z.object({
   id: z.string().optional(),
@@ -32,3 +32,13 @@ export const checkInFormSchema = z.object({
 });
 
 export type CheckInFormData = z.infer<typeof checkInFormSchema>;
+
+export const okrCycleSchema = z.object({
+  startDate: z.date({ required_error: "تاریخ شروع الزامی است.", invalid_type_error: "تاریخ شروع نامعتبر است." }),
+  endDate: z.date({ required_error: "تاریخ پایان الزامی است.", invalid_type_error: "تاریخ پایان نامعتبر است." }),
+}).refine(data => data.endDate >= data.startDate, {
+  message: "تاریخ پایان باید بعد یا مساوی تاریخ شروع باشد.",
+  path: ["endDate"],
+});
+
+export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
