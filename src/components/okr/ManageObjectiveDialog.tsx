@@ -96,8 +96,8 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>
-          <ScrollArea className="max-h-[calc(80vh-150px)] p-1 pl-5">
-            <div className="space-y-6 py-2 px-1">
+          <ScrollArea className="max-h-[calc(80vh-150px)]">
+            <div className="space-y-6 pt-3 pr-6 pb-3 pl-2">
               <div>
                 <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
                 <Textarea

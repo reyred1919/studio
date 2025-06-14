@@ -110,8 +110,8 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(processCheckIn)}>
-          <ScrollArea className="max-h-[calc(70vh-200px)] p-1 pl-4"> {/* Changed pr-4 to pl-4 for RTL */}
-            <div className="space-y-6 py-2">
+          <ScrollArea className="max-h-[calc(70vh-200px)]">
+            <div className="space-y-6 pt-3 pr-4 pb-3 pl-1">
               {watch('keyResults').map((kr, index) => {
                 const originalKr = objective.keyResults.find(k => k.id === kr.id);
                 if (!originalKr) return null;
