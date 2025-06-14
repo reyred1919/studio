@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import type { Objective, ObjectiveFormData } from '@/types/okr';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
+import type { ConfidenceLevel } from '@/lib/constants';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
@@ -9,6 +10,9 @@ import { ManageObjectiveDialog } from '@/components/okr/ManageObjectiveDialog';
 import { CheckInModal } from '@/components/okr/CheckInModal';
 import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Target, TrendingUp, AlertTriangle, Smile } from 'lucide-react';
 
 const generateId = () => crypto.randomUUID();
 
@@ -70,11 +74,10 @@ export default function OkrDashboardClient() {
 
   useEffect(() => {
     setIsMounted(true);
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa'); // Use a different key for Persian
+    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
     if (storedObjectives) {
       try {
         const parsedObjectives = JSON.parse(storedObjectives);
-        // Basic validation to ensure structure compatibility if needed
         if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
            setObjectives(parsedObjectives);
         } else {
@@ -94,9 +97,51 @@ export default function OkrDashboardClient() {
     if (isMounted && objectives.length > 0) { 
         localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
     } else if (isMounted && objectives.length === 0) {
-        localStorage.removeItem('okrTrackerData_objectives_fa'); // Clear if no objectives
+        localStorage.removeItem('okrTrackerData_objectives_fa');
     }
   }, [objectives, isMounted]);
+
+  const summaryStats = useMemo(() => {
+    if (!objectives || objectives.length === 0) {
+      return {
+        totalObjectives: 0,
+        averageProgress: 0,
+        krsByConfidence: {
+          'زیاد': 0,
+          'متوسط': 0,
+          'کم': 0,
+          'در معرض خطر': 0,
+        } as Record<ConfidenceLevel, number>,
+      };
+    }
+
+    let totalProgressSum = 0;
+    let totalKeyResultsCount = 0;
+    const krsByConfidence: Record<ConfidenceLevel, number> = {
+      'زیاد': 0,
+      'متوسط': 0,
+      'کم': 0,
+      'در معرض خطر': 0,
+    };
+
+    objectives.forEach(obj => {
+      obj.keyResults.forEach(kr => {
+        totalProgressSum += kr.progress;
+        totalKeyResultsCount++;
+        if (krsByConfidence[kr.confidenceLevel] !== undefined) {
+            krsByConfidence[kr.confidenceLevel]++;
+        }
+      });
+    });
+
+    const averageProgress = totalKeyResultsCount > 0 ? totalProgressSum / totalKeyResultsCount : 0;
+
+    return {
+      totalObjectives: objectives.length,
+      averageProgress: parseFloat(averageProgress.toFixed(1)), // Round to one decimal place
+      krsByConfidence: krsByConfidence,
+    };
+  }, [objectives]);
 
 
   const handleAddObjectiveClick = () => {
@@ -152,10 +197,52 @@ export default function OkrDashboardClient() {
       <AppHeader onAddObjective={handleAddObjectiveClick} />
       <main className="flex-grow">
         <PageContainer>
-          {objectives.length === 0 ? (
+          {isMounted && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8 pt-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
+                  <Target className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">میانگین پیشرفت</CardTitle>
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
+                  {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">نتایج کلیدی در معرض خطر</CardTitle>
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summaryStats.krsByConfidence['در معرض خطر']}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">نتایج کلیدی با اطمینان زیاد</CardTitle>
+                  <Smile className="h-5 w-5 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summaryStats.krsByConfidence['زیاد']}</div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {objectives.length === 0 && isMounted ? (
             <EmptyState onAddObjective={handleAddObjectiveClick} />
           ) : (
-            <div className="space-y-8 pt-2">
+            <div className="space-y-8">
               {objectives.map(obj => (
                 <ObjectiveCard
                   key={obj.id}
