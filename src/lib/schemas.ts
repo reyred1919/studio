@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES } from './constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, MEETING_FREQUENCIES, PERSIAN_WEEK_DAYS } from './constants';
 
 export const initiativeSchema = z.object({
   id: z.string().optional(),
@@ -42,3 +42,26 @@ export const okrCycleSchema = z.object({
 });
 
 export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
+
+const meetingFrequencyValues = MEETING_FREQUENCIES.map(f => f.value) as [string, ...string[]];
+const persianWeekDayValues = PERSIAN_WEEK_DAYS.map(d => d.value) as [number, ...number[]];
+
+
+export const calendarSettingsSchema = z.object({
+  frequency: z.enum(meetingFrequencyValues, {
+    required_error: "فرکانس جلسات الزامی است.",
+  }),
+  checkInDayOfWeek: z.preprocess(
+    (val) => (typeof val === 'string' ? parseInt(val, 10) : val),
+    z.enum(persianWeekDayValues as unknown as [string, ...string[]], { // Zod enum expects string values, so we cast number array
+      required_error: "روز جلسات هفتگی الزامی است.",
+      invalid_type_error: "روز جلسات هفتگی نامعتبر است."
+    }).transform(val => Number(val)) // Ensure it's stored as a number
+  ),
+  evaluationDate: z.date({
+    required_error: "تاریخ جلسه ارزیابی الزامی است.",
+    invalid_type_error: "تاریخ جلسه ارزیابی نامعتبر است."
+  }).optional(),
+});
+
+export type CalendarSettingsFormData = z.infer<typeof calendarSettingsSchema>;
