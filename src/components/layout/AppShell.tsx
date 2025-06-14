@@ -43,7 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href + item.label}>
-                <Link href={item.href} legacyBehavior passHref>
+                <Link href={item.href} passHref>
                   <SidebarMenuButton
                     tooltip={{ children: item.label, side: 'left', className: 'font-body' }}
                     asChild
