@@ -19,8 +19,8 @@ export const objectiveFormSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, "شرح هدف الزامی است").max(500, "شرح هدف بیش از حد طولانی است"),
   keyResults: z.array(keyResultSchema)
-    .min(1, "حداقل یک نتیجه کلیدی الزامی است")
-    .default([{...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'}]),
+    .min(2, "حداقل دو نتیجه کلیدی الزامی است")
+    .max(5, "حداکثر پنج نتیجه کلیدی مجاز است"),
 });
 
 export const checkInFormSchema = z.object({

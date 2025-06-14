@@ -17,9 +17,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, PlusCircle } from 'lucide-react';
-import type { Objective, ObjectiveFormData } from '@/types/okr';
+import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT } from '@/lib/constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ManageObjectiveDialogProps {
@@ -29,12 +29,42 @@ interface ManageObjectiveDialogProps {
   initialData?: Objective | null;
 }
 
+// Helper type for KeyResult within ObjectiveFormData
+type KeyResultFormData = ObjectiveFormData['keyResults'][number];
+
+const getInitialKeyResultsForForm = (objective: Objective | null | undefined): KeyResultFormData[] => {
+  const defaultKrTemplate: KeyResultFormData = { 
+    description: DEFAULT_KEY_RESULT.description,
+    progress: DEFAULT_KEY_RESULT.progress,
+    confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
+    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init})) // Ensure deep copy for initiatives if any
+  };
+  const minKrs = 2;
+  let krsToUse: KeyResultFormData[] = [];
+
+  if (objective && objective.keyResults && objective.keyResults.length > 0) {
+    krsToUse = objective.keyResults.map(kr => ({ 
+      ...kr, 
+      progress: kr.progress ?? 0,
+      // Ensure initiatives are also mapped correctly if they have IDs or specific structures for the form
+      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init})) : [] 
+    }));
+  }
+  
+  while (krsToUse.length < minKrs) {
+    // Create a new object for each default KR to avoid reference issues
+    krsToUse.push({ ...defaultKrTemplate, initiatives: [] }); 
+  }
+  return krsToUse;
+};
+
+
 export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }: ManageObjectiveDialogProps) {
   const form = useForm<ObjectiveFormData>({
     resolver: zodResolver(objectiveFormSchema),
     defaultValues: initialData 
-      ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [{...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'}] }
-      : { description: '', keyResults: [{...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'}] },
+      ? { ...initialData, description: initialData.description || '', keyResults: getInitialKeyResultsForForm(initialData) }
+      : { description: '', keyResults: getInitialKeyResultsForForm(null) },
   });
 
   const { fields: krFields, append: appendKr, remove: removeKr } = useFieldArray({
@@ -44,11 +74,10 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
 
   React.useEffect(() => {
     if (isOpen) {
-      const defaultKRWithTranslatedConfidence = {...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'};
-      form.reset(initialData 
-        ? { ...initialData, keyResults: initialData.keyResults.length > 0 ? initialData.keyResults.map(kr => ({...kr, progress: kr.progress ?? 0})) : [defaultKRWithTranslatedConfidence] }
-        : { description: '', keyResults: [defaultKRWithTranslatedConfidence] }
-      );
+      const newDefaultValues = initialData 
+        ? { ...initialData, description: initialData.description || '', keyResults: getInitialKeyResultsForForm(initialData) }
+        : { description: '', keyResults: getInitialKeyResultsForForm(null) };
+      form.reset(newDefaultValues);
     }
   }, [isOpen, initialData, form.reset]);
 
@@ -67,7 +96,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>
-          <ScrollArea className="max-h-[calc(80vh-150px)] p-1 pl-5"> {/* Changed pr-5 to pl-5 for RTL */}
+          <ScrollArea className="max-h-[calc(80vh-150px)] p-1 pl-5">
             <div className="space-y-6 py-2 px-1">
               <div>
                 <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
@@ -90,11 +119,16 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                         <Label htmlFor={`keyResults.${krIndex}.description`} className="font-medium text-foreground">
                           نتیجه کلیدی #{krIndex + 1}
                         </Label>
-                        {krFields.length > 1 && (
-                          <Button type="button" variant="ghost" size="icon" onClick={() => removeKr(krIndex)} className="text-destructive hover:bg-destructive/10 h-8 w-8">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeKr(krIndex)} 
+                          className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                          disabled={krFields.length <= 2}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                       <Textarea
                         id={`keyResults.${krIndex}.description`}
@@ -150,8 +184,14 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                   </Card>
                 ))}
                  {form.formState.errors.keyResults?.root && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.root.message}</p>}
-                 {form.formState.errors.keyResults?.message && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.message}</p>}
-                <Button type="button" variant="outline" onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} className="mt-2 w-full">
+                 {form.formState.errors.keyResults && !form.formState.errors.keyResults.root && typeof form.formState.errors.keyResults.message === 'string' && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.message}</p>}
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} 
+                  className="mt-2 w-full"
+                  disabled={krFields.length >= 5}
+                >
                   <PlusCircle className="w-4 h-4 ml-2" /> افزودن نتیجه کلیدی
                 </Button>
               </div>
