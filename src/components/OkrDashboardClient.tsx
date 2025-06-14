@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
+import type { Objective, ObjectiveFormData, KeyResult, Initiative } from '@/types/okr';
 import type { ConfidenceLevel } from '@/lib/constants';
-import { AppHeader } from '@/components/layout/AppHeader';
-import { PageContainer } from '@/components/layout/PageContainer';
+// AppHeader is now part of AppShell, so we don't import it here directly for the main header
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
 import { ManageObjectiveDialog } from '@/components/okr/ManageObjectiveDialog';
 import { CheckInModal } from '@/components/okr/CheckInModal';
@@ -12,7 +11,8 @@ import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Target, TrendingUp, AlertTriangle, Smile } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Target, TrendingUp, AlertTriangle, Smile, Plus, Milestone, Play, ShieldX, Activity, XOctagon, CheckCircle2 } from 'lucide-react';
 
 const generateId = () => crypto.randomUUID();
 
@@ -112,11 +112,18 @@ export default function OkrDashboardClient() {
           'کم': 0,
           'در معرض خطر': 0,
         } as Record<ConfidenceLevel, number>,
+        completedKeyResults: 0,
+        initiativesInProgress: 0,
+        initiativesBlocked: 0,
       };
     }
 
     let totalProgressSum = 0;
     let totalKeyResultsCount = 0;
+    let completedKeyResults = 0;
+    let initiativesInProgress = 0;
+    let initiativesBlocked = 0;
+
     const krsByConfidence: Record<ConfidenceLevel, number> = {
       'زیاد': 0,
       'متوسط': 0,
@@ -128,9 +135,19 @@ export default function OkrDashboardClient() {
       obj.keyResults.forEach(kr => {
         totalProgressSum += kr.progress;
         totalKeyResultsCount++;
+        if (kr.progress === 100) {
+          completedKeyResults++;
+        }
         if (krsByConfidence[kr.confidenceLevel] !== undefined) {
             krsByConfidence[kr.confidenceLevel]++;
         }
+        kr.initiatives.forEach(init => {
+          if (init.status === 'در حال انجام') {
+            initiativesInProgress++;
+          } else if (init.status === 'مسدود شده') {
+            initiativesBlocked++;
+          }
+        });
       });
     });
 
@@ -138,8 +155,11 @@ export default function OkrDashboardClient() {
 
     return {
       totalObjectives: objectives.length,
-      averageProgress: parseFloat(averageProgress.toFixed(1)), // Round to one decimal place
+      averageProgress: parseFloat(averageProgress.toFixed(1)),
       krsByConfidence: krsByConfidence,
+      completedKeyResults,
+      initiativesInProgress,
+      initiativesBlocked,
     };
   }, [objectives]);
 
@@ -193,69 +213,99 @@ export default function OkrDashboardClient() {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <AppHeader onAddObjective={handleAddObjectiveClick} />
-      <main className="flex-grow">
-        <PageContainer>
-          {isMounted && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8 pt-2">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
-                  <Target className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">میانگین پیشرفت</CardTitle>
-                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
-                  {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">نتایج کلیدی در معرض خطر</CardTitle>
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summaryStats.krsByConfidence['در معرض خطر']}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">نتایج کلیدی با اطمینان زیاد</CardTitle>
-                  <Smile className="h-5 w-5 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summaryStats.krsByConfidence['زیاد']}</div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+    <>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold font-headline text-foreground">داشبورد OKR</h2>
+        <Button onClick={handleAddObjectiveClick} className="bg-primary hover:bg-primary/90">
+          <Plus className="w-4 h-4 ml-2" />
+          افزودن هدف
+        </Button>
+      </div>
 
-          {objectives.length === 0 && isMounted ? (
-            <EmptyState onAddObjective={handleAddObjectiveClick} />
-          ) : (
-            <div className="space-y-8">
-              {objectives.map(obj => (
-                <ObjectiveCard
-                  key={obj.id}
-                  objective={obj}
-                  onEdit={handleEditObjective}
-                  onCheckIn={handleOpenCheckInModal}
-                />
-              ))}
-            </div>
-          )}
-        </PageContainer>
-      </main>
+      {isMounted && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
+              <Target className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">میانگین پیشرفت</CardTitle>
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
+              {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">نتایج کلیدی با اطمینان زیاد</CardTitle>
+              <Smile className="h-5 w-5 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.krsByConfidence['زیاد']}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">نتایج کلیدی در معرض خطر</CardTitle>
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.krsByConfidence['در معرض خطر']}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">نتایج کلیدی تکمیل‌شده</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.completedKeyResults}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">اقدامات در حال انجام</CardTitle>
+              <Activity className="h-5 w-5 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.initiativesInProgress}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">اقدامات مسدود شده</CardTitle>
+              <XOctagon className="h-5 w-5 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summaryStats.initiativesBlocked}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
+      {objectives.length === 0 && isMounted ? (
+        <EmptyState onAddObjective={handleAddObjectiveClick} />
+      ) : (
+        <div className="space-y-8">
+          {objectives.map(obj => (
+            <ObjectiveCard
+              key={obj.id}
+              objective={obj}
+              onEdit={handleEditObjective}
+              onCheckIn={handleOpenCheckInModal}
+            />
+          ))}
+        </div>
+      )}
+      
       <ManageObjectiveDialog
         isOpen={isManageObjectiveDialogOpen}
         onClose={() => { setIsManageObjectiveDialogOpen(false); setEditingObjective(null); }}
@@ -271,9 +321,6 @@ export default function OkrDashboardClient() {
           onUpdateObjective={handleUpdateObjectiveAfterCheckIn}
         />
       )}
-       <footer className="py-8 text-center text-sm text-muted-foreground border-t mt-12">
-         ردیاب OKR &copy; {new Date().getFullYear()} - روی آنچه مهم است تمرکز کنید.
-      </footer>
-    </div>
+    </>
   );
 }

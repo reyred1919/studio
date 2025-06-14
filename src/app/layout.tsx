@@ -1,6 +1,8 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { SidebarProvider } from '@/components/ui/sidebar';
+import AppShell from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
   title: 'ردیاب OKR',
@@ -19,8 +21,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
-        {children}
+      <body className="font-body antialiased bg-background text-foreground">
+        <SidebarProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>

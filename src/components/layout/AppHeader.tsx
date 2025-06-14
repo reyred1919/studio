@@ -1,23 +1,19 @@
 import type React from 'react';
-import { Button } from '@/components/ui/button';
-import { Target, Plus } from 'lucide-react';
+import { Target } from 'lucide-react';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
-interface AppHeaderProps {
-  onAddObjective: () => void;
-}
-
-export function AppHeader({ onAddObjective }: AppHeaderProps) {
+export function AppHeader() {
   return (
     <header className="bg-card border-b sticky top-0 z-40 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Target className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-headline font-semibold text-foreground">ردیاب OKR</h1>
+          <SidebarTrigger className="text-foreground data-[state=open]:bg-accent/20" />
+          <div className="flex items-center gap-2">
+            <Target className="h-7 w-7 text-primary" />
+            <h1 className="text-xl font-headline font-semibold text-foreground">ردیاب OKR</h1>
+          </div>
         </div>
-        <Button onClick={onAddObjective} className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 ml-2" />
-          افزودن هدف
-        </Button>
+        {/* The "Add Objective" button will be moved to OkrDashboardClient */}
       </div>
     </header>
   );
