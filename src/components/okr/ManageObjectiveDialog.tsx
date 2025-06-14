@@ -20,7 +20,8 @@ import { Trash2, PlusCircle } from 'lucide-react';
 import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel } from '@/lib/constants';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// Removed ScrollArea import as it's no longer used for the main scroll
+// import { ScrollArea } from '@/components/ui/scroll-area'; 
 
 interface ManageObjectiveDialogProps {
   isOpen: boolean;
@@ -29,7 +30,6 @@ interface ManageObjectiveDialogProps {
   initialData?: Objective | null;
 }
 
-// Helper type for KeyResult within ObjectiveFormData
 type KeyResultFormData = ObjectiveFormData['keyResults'][number];
 
 const getInitialKeyResultsForForm = (objective: Objective | null | undefined): KeyResultFormData[] => {
@@ -37,7 +37,7 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     description: DEFAULT_KEY_RESULT.description,
     progress: DEFAULT_KEY_RESULT.progress,
     confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
-    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init})) // Ensure deep copy for initiatives if any
+    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init})) 
   };
   const minKrs = 2;
   let krsToUse: KeyResultFormData[] = [];
@@ -46,13 +46,11 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     krsToUse = objective.keyResults.map(kr => ({ 
       ...kr, 
       progress: kr.progress ?? 0,
-      // Ensure initiatives are also mapped correctly if they have IDs or specific structures for the form
       initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init})) : [] 
     }));
   }
   
   while (krsToUse.length < minKrs) {
-    // Create a new object for each default KR to avoid reference issues
     krsToUse.push({ ...defaultKrTemplate, initiatives: [] }); 
   }
   return krsToUse;
@@ -88,7 +86,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">{initialData ? 'ویرایش هدف' : 'افزودن هدف جدید'}</DialogTitle>
           <DialogDescription>
@@ -96,108 +94,107 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>
-          <ScrollArea className="max-h-[calc(80vh-150px)]">
-            <div className="space-y-6 pt-3 pr-6 pb-3 pl-2">
-              <div>
-                <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
-                <Textarea
-                  id="objectiveDescription"
-                  {...form.register('description')}
-                  className="mt-1"
-                  rows={3}
-                  placeholder="مثال: ایجاد تحول در تجربه پشتیبانی مشتری"
-                />
-                {form.formState.errors.description && <p className="text-destructive text-sm mt-1">{form.formState.errors.description.message}</p>}
-              </div>
+          {/* Removed ScrollArea, DialogContent now handles scrolling */}
+          <div className="space-y-6 pt-3 pr-6 pb-3 pl-2">
+            <div>
+              <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
+              <Textarea
+                id="objectiveDescription"
+                {...form.register('description')}
+                className="mt-1"
+                rows={3}
+                placeholder="مثال: ایجاد تحول در تجربه پشتیبانی مشتری"
+              />
+              {form.formState.errors.description && <p className="text-destructive text-sm mt-1">{form.formState.errors.description.message}</p>}
+            </div>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-3">نتایج کلیدی</h3>
-                {krFields.map((krItem, krIndex) => (
-                  <Card key={krItem.id} className="mb-4 p-4 border rounded-lg shadow-sm bg-card">
-                    <CardContent className="p-0 space-y-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <Label htmlFor={`keyResults.${krIndex}.description`} className="font-medium text-foreground">
-                          نتیجه کلیدی #{krIndex + 1}
-                        </Label>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removeKr(krIndex)} 
-                          className="text-destructive hover:bg-destructive/10 h-8 w-8"
-                          disabled={krFields.length <= 2}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <Textarea
-                        id={`keyResults.${krIndex}.description`}
-                        {...form.register(`keyResults.${krIndex}.description`)}
-                        placeholder="مثال: کاهش میانگین زمان پاسخگویی به میزان ۲۰٪"
-                        rows={2}
-                      />
-                      {form.formState.errors.keyResults?.[krIndex]?.description && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.description?.message}</p>}
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor={`keyResults.${krIndex}.progress`}>پیشرفت (٪)</Label>
-                           <Controller
-                              name={`keyResults.${krIndex}.progress`}
-                              control={form.control}
-                              render={({ field }) => (
-                                <Input 
-                                  type="number"
-                                  value={field.value ?? 0}
-                                  onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} 
-                                  placeholder="۰-۱۰۰"
-                                  className="mt-1"
-                                  min="0" max="100"
-                                />
-                              )}
-                            />
-                          {form.formState.errors.keyResults?.[krIndex]?.progress && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.progress?.message}</p>}
-                        </div>
-                        <div>
-                          <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
-                          <Controller
-                            name={`keyResults.${krIndex}.confidenceLevel`}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">نتایج کلیدی</h3>
+              {krFields.map((krItem, krIndex) => (
+                <Card key={krItem.id} className="mb-4 p-4 border rounded-lg shadow-sm bg-card">
+                  <CardContent className="p-0 space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <Label htmlFor={`keyResults.${krIndex}.description`} className="font-medium text-foreground">
+                        نتیجه کلیدی #{krIndex + 1}
+                      </Label>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => removeKr(krIndex)} 
+                        className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                        disabled={krFields.length <= 2}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      id={`keyResults.${krIndex}.description`}
+                      {...form.register(`keyResults.${krIndex}.description`)}
+                      placeholder="مثال: کاهش میانگین زمان پاسخگویی به میزان ۲۰٪"
+                      rows={2}
+                    />
+                    {form.formState.errors.keyResults?.[krIndex]?.description && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.description?.message}</p>}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`keyResults.${krIndex}.progress`}>پیشرفت (٪)</Label>
+                         <Controller
+                            name={`keyResults.${krIndex}.progress`}
                             control={form.control}
                             render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger className="mt-1">
-                                  <SelectValue placeholder="انتخاب سطح اطمینان" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CONFIDENCE_LEVELS.map(level => (
-                                    <SelectItem key={level} value={level}>{level}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <Input 
+                                type="number"
+                                value={field.value ?? 0}
+                                onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} 
+                                placeholder="۰-۱۰۰"
+                                className="mt-1"
+                                min="0" max="100"
+                              />
                             )}
                           />
-                          {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
-                        </div>
+                        {form.formState.errors.keyResults?.[krIndex]?.progress && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.progress?.message}</p>}
                       </div>
+                      <div>
+                        <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
+                        <Controller
+                          name={`keyResults.${krIndex}.confidenceLevel`}
+                          control={form.control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger className="mt-1">
+                                <SelectValue placeholder="انتخاب سطح اطمینان" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CONFIDENCE_LEVELS.map(level => (
+                                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
+                      </div>
+                    </div>
 
-                      <InitiativesArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
-                    </CardContent>
-                  </Card>
-                ))}
-                 {form.formState.errors.keyResults?.root && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.root.message}</p>}
-                 {form.formState.errors.keyResults && !form.formState.errors.keyResults.root && typeof form.formState.errors.keyResults.message === 'string' && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.message}</p>}
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} 
-                  className="mt-2 w-full"
-                  disabled={krFields.length >= 5}
-                >
-                  <PlusCircle className="w-4 h-4 ml-2" /> افزودن نتیجه کلیدی
-                </Button>
-              </div>
+                    <InitiativesArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
+                  </CardContent>
+                </Card>
+              ))}
+               {form.formState.errors.keyResults?.root && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.root.message}</p>}
+               {form.formState.errors.keyResults && !form.formState.errors.keyResults.root && typeof form.formState.errors.keyResults.message === 'string' && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults.message}</p>}
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} 
+                className="mt-2 w-full"
+                disabled={krFields.length >= 5}
+              >
+                <PlusCircle className="w-4 h-4 ml-2" /> افزودن نتیجه کلیدی
+              </Button>
             </div>
-          </ScrollArea>
-          <DialogFooter className="mt-8 pt-6 border-t">
+          </div>
+          <DialogFooter className="mt-8 pt-6 border-t sticky bottom-0 bg-background py-4"> {/* Made footer sticky */}
             <DialogClose asChild>
               <Button type="button" variant="outline">انصراف</Button>
             </DialogClose>
