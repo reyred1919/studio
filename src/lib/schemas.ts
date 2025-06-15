@@ -44,20 +44,18 @@ export const okrCycleSchema = z.object({
 export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
 
 const meetingFrequencyValues = MEETING_FREQUENCIES.map(f => f.value) as [string, ...string[]];
-const persianWeekDayValues = PERSIAN_WEEK_DAYS.map(d => d.value) as [number, ...number[]];
+// Create an array of string values for PERSIAN_WEEK_DAYS for z.enum
+const persianWeekDayStringValues = PERSIAN_WEEK_DAYS.map(d => String(d.value)) as [string, ...string[]];
 
 
 export const calendarSettingsSchema = z.object({
   frequency: z.enum(meetingFrequencyValues, {
     required_error: "فرکانس جلسات الزامی است.",
   }),
-  checkInDayOfWeek: z.preprocess(
-    (val) => (typeof val === 'string' ? parseInt(val, 10) : val),
-    z.enum(persianWeekDayValues as unknown as [string, ...string[]], { // Zod enum expects string values, so we cast number array
-      required_error: "روز جلسات هفتگی الزامی است.",
-      invalid_type_error: "روز جلسات هفتگی نامعتبر است."
-    }).transform(val => Number(val)) // Ensure it's stored as a number
-  ),
+  checkInDayOfWeek: z.enum(persianWeekDayStringValues, { 
+    required_error: "روز جلسات هفتگی الزامی است.",
+    invalid_type_error: "روز انتخاب شده برای جلسات نامعتبر است." 
+  }).transform(val => Number(val)), // Transform the validated string to a number
   evaluationDate: z.date({
     required_error: "تاریخ جلسه ارزیابی الزامی است.",
     invalid_type_error: "تاریخ جلسه ارزیابی نامعتبر است."
