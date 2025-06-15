@@ -35,7 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CalendarDays, CalendarCheck, CalendarClock, CalendarX, ListFilter, Save } from 'lucide-react';
 import Image from 'next/image';
-import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Badge } from '@/components/ui/badge';
 
 import type { OkrCycle, CalendarSettings, ScheduledMeeting, CalendarSettingsFormData } from '@/types/okr';
 import { calendarSettingsSchema } from '@/lib/schemas';
@@ -54,7 +54,8 @@ export default function CalendarPage() {
     resolver: zodResolver(calendarSettingsSchema),
     defaultValues: {
       frequency: 'weekly',
-      checkInDayOfWeek: 6, // Saturday
+      checkInDayOfWeek: 6, // Saturday - Zod schema transforms output to number, so default can be number.
+                           // RHF field value will be number initially, then string after user interaction if onChange passes string.
       // evaluationDate will be undefined by default
     }
   });
@@ -82,27 +83,25 @@ export default function CalendarPage() {
     const storedSettings = localStorage.getItem(CALENDAR_SETTINGS_STORAGE_KEY);
     if (storedSettings) {
       try {
-        const parsedSettings = JSON.parse(storedSettings) as CalendarSettingsFormData; // Use form data type here
-         if (parsedSettings.evaluationDate) {
-          // Ensure evaluationDate is a Date object if it was stored as string
+        // CalendarSettings (actual settings type) has checkInDayOfWeek as number.
+        const parsedSettings: CalendarSettings = JSON.parse(storedSettings);
+        if (parsedSettings.evaluationDate) {
           parsedSettings.evaluationDate = parseISO(parsedSettings.evaluationDate as unknown as string);
         }
-        // setCalendarSettings is for the actual data used in meeting calculations, not just form.
-        // However, parsedSettings directly from storage matches CalendarSettings if types are aligned.
-        // For clarity, we can cast after parsing date:
-        const loadedCalendarSettings: CalendarSettings = {
-            frequency: parsedSettings.frequency,
-            checkInDayOfWeek: parsedSettings.checkInDayOfWeek, // Should be number if schema transforms
-            evaluationDate: parsedSettings.evaluationDate
-        };
-        setCalendarSettings(loadedCalendarSettings);
-        reset(parsedSettings); // Reset form with loaded & parsed values
+        // Reset form. Since CalendarSettingsFormData (type for useForm generic) has checkInDayOfWeek as number (due to Zod transform's output),
+        // we pass the number here. The Controller logic will handle string conversion for the Select component.
+        reset({
+          frequency: parsedSettings.frequency,
+          checkInDayOfWeek: parsedSettings.checkInDayOfWeek, // This is a number
+          evaluationDate: parsedSettings.evaluationDate,
+        });
+        setCalendarSettings(parsedSettings);
       } catch (error) {
         console.error("Failed to parse calendar settings from localStorage", error);
       }
     }
   }, [reset]);
-  
+
   useEffect(() => {
     if (isMounted && calendarSettings) {
       const settingsToStore = {
@@ -113,15 +112,16 @@ export default function CalendarPage() {
     }
   }, [calendarSettings, isMounted]);
 
-  // Effect to suggest evaluation date
   useEffect(() => {
     if (!isMounted) return;
 
     const currentOkrCycleEndDate = okrCycle?.endDate;
-    // watchedCheckInDay is a number from the form state due to defaultValues and schema transform
-    const formCheckInDayOfWeek = watchedCheckInDay; 
+    // watchedCheckInDay comes from RHF. If it was set by onChange(stringValue), it's a string.
+    // If it's the initial default value or from reset(), it's a number.
+    // We need a number for setDay.
+    const formCheckInDayOfWeek = typeof watchedCheckInDay === 'string' ? parseInt(watchedCheckInDay, 10) : watchedCheckInDay;
 
-    if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && watchedEvaluationDate === undefined) {
+    if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && !isNaN(formCheckInDayOfWeek) && watchedEvaluationDate === undefined) {
       let suggestedDate = setDay(currentOkrCycleEndDate, formCheckInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
       suggestedDate = startOfDay(suggestedDate);
 
@@ -133,28 +133,29 @@ export default function CalendarPage() {
         setValue('evaluationDate', suggestedDate, { shouldValidate: true, shouldDirty: true });
       }
     }
-  }, [isMounted, okrCycle, watchedCheckInDay, watchedEvaluationDate, setValue, faIR]);
+  }, [isMounted, okrCycle, watchedCheckInDay, watchedEvaluationDate, setValue]);
 
 
   const handleSaveSettings = (data: CalendarSettingsFormData) => {
+    // data.checkInDayOfWeek is already a number here due to Zod transform in calendarSettingsSchema
     const newSettings: CalendarSettings = {
       frequency: data.frequency,
-      checkInDayOfWeek: data.checkInDayOfWeek, // Zod schema already transformed it to number
+      checkInDayOfWeek: data.checkInDayOfWeek,
       evaluationDate: data.evaluationDate,
     };
-    setCalendarSettings(newSettings); // This will trigger the useEffect to save to localStorage
+    setCalendarSettings(newSettings);
     toast({
       title: "تنظیمات ذخیره شد",
       description: "تنظیمات تقویم جلسات شما با موفقیت ذخیره شد.",
     });
   };
-  
+
   const scheduledMeetings = useMemo((): ScheduledMeeting[] => {
     if (!okrCycle || !calendarSettings) return [];
 
     const meetings: ScheduledMeeting[] = [];
     const { startDate, endDate } = okrCycle;
-    const { frequency, checkInDayOfWeek, evaluationDate } = calendarSettings;
+    const { frequency, checkInDayOfWeek, evaluationDate } = calendarSettings; // checkInDayOfWeek is number here
 
     let currentDate = startOfDay(startDate);
     let meetingIdCounter = 0;
@@ -164,8 +165,8 @@ export default function CalendarPage() {
       if (isBefore(firstCheckIn, currentDate)) {
         firstCheckIn = addWeeks(firstCheckIn, 1);
       }
-      
-      currentDate = startOfDay(firstCheckIn); // Ensure we start from a clean day
+
+      currentDate = startOfDay(firstCheckIn);
 
       while (isBefore(currentDate, endDate) || isSameDay(currentDate, endDate)) {
         meetings.push({
@@ -184,41 +185,34 @@ export default function CalendarPage() {
         } else if (frequency === 'monthly') {
           const targetMonthDate = addMonths(currentDate, 1);
           let potentialNextDate = setDay(targetMonthDate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-          
-          // If setDay went to the previous month relative to targetMonthDate, or too early in targetMonthDate's month
-          // ensure we find the first occurrence of checkInDayOfWeek in or after targetMonthDate's "day".
+
           if (isBefore(potentialNextDate, startOfDay(targetMonthDate))) {
-             // Try to find the day in the week of targetMonthDate or the following weeks
-             let attempts = 0; // safety break
+             let attempts = 0;
              while(isBefore(potentialNextDate, startOfDay(targetMonthDate)) && attempts < 5){
-                 potentialNextDate = addWeeks(potentialNextDate, 1); 
+                 potentialNextDate = addWeeks(potentialNextDate, 1);
                  attempts++;
              }
           }
-           // If after multiple attempts, it's still before the original meeting + approx 1 month,
-           // it might indicate an issue with very short months or specific day configurations.
-           // This part aims to ensure we move forward by at least a few weeks.
-           if (isBefore(potentialNextDate, addWeeks(currentDate, 3))) { // Heuristic: must be at least ~3 weeks later
+           if (isBefore(potentialNextDate, addWeeks(currentDate, 3))) {
               potentialNextDate = setDay(addMonths(currentDate, 1), checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-              // If setDay still results in an early date, advance weekly until it's clearly in the next month's cycle
               while(isBefore(potentialNextDate, addMonths(currentDate,1)) && !isSameDay(potentialNextDate, addMonths(currentDate,1)) ){
                 potentialNextDate = addWeeks(potentialNextDate,1);
-                if (potentialNextDate > endDate) break; // Don't go past end date
+                if (isAfter(potentialNextDate,endDate) && !isSameDay(potentialNextDate,endDate)) break; 
               }
            }
           nextMeetingDateCandidate = potentialNextDate;
 
         } else {
-          break; 
+          break;
         }
         if (nextMeetingDateCandidate && (isBefore(nextMeetingDateCandidate, endDate) || isSameDay(nextMeetingDateCandidate, endDate))) {
           currentDate = startOfDay(nextMeetingDateCandidate);
         } else {
-          break; // Next meeting would be outside the cycle
+          break;
         }
       }
     }
-    
+
     if (evaluationDate && (isBefore(evaluationDate, endDate) || isSameDay(evaluationDate, endDate)) && (isAfter(evaluationDate, startDate) || isSameDay(evaluationDate, startDate)) ) {
       meetings.push({
         id: 'evaluation-meeting',
@@ -255,16 +249,16 @@ export default function CalendarPage() {
       </PageContainer>
     );
   }
-  
+
   if (!okrCycle) {
     return (
       <PageContainer>
         <div className="flex flex-col items-center text-center py-12">
-          <Image 
-              src="https://placehold.co/300x200.png" 
-              alt="تقویم خالی" 
-              width={300} 
-              height={200} 
+          <Image
+              src="https://placehold.co/300x200.png"
+              alt="تقویم خالی"
+              width={300}
+              height={200}
               className="mb-8 rounded-lg shadow-xl"
               data-ai-hint="تقویم هشدار"
           />
@@ -322,10 +316,10 @@ export default function CalendarPage() {
                 <Controller
                   name="checkInDayOfWeek"
                   control={control}
-                  render={({ field }) => (
-                    <Select 
-                        onValueChange={(value) => field.onChange(Number(value))} // Ensure number is passed
-                        value={String(field.value)} // field.value is number, Select expects string
+                  render={({ field }) => ( // field.value from RHF can be number (initial) or string (after onChange)
+                    <Select
+                        onValueChange={(value) => field.onChange(value)} // Pass string value from SelectItem to RHF
+                        value={field.value !== undefined ? String(field.value) : undefined} // Ensure Select gets string or undefined
                     >
                       <SelectTrigger id="checkInDayOfWeek" className="mt-1">
                         <SelectValue placeholder="انتخاب روز هفته" />
@@ -352,9 +346,9 @@ export default function CalendarPage() {
                         setDate={field.onChange}
                         placeholderText="انتخاب تاریخ ارزیابی"
                         className="mt-1"
-                        disabled={(date) => 
-                            !okrCycle || // Disable if no cycle
-                            isBefore(date, startOfDay(okrCycle.startDate)) || 
+                        disabled={(date) =>
+                            !okrCycle ||
+                            isBefore(date, startOfDay(okrCycle.startDate)) ||
                             isAfter(date, endOfDay(okrCycle.endDate))
                         }
                       />
@@ -405,11 +399,11 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div className="text-center py-10">
-                <Image 
-                    src="https://placehold.co/300x200.png" 
-                    alt="بدون جلسه" 
-                    width={250} 
-                    height={160} 
+                <Image
+                    src="https://placehold.co/300x200.png"
+                    alt="بدون جلسه"
+                    width={250}
+                    height={160}
                     className="mb-6 rounded-md shadow-md mx-auto"
                     data-ai-hint="تقویم خالی یادداشت"
                 />
@@ -427,6 +421,3 @@ export default function CalendarPage() {
 function isPast(date: Date): boolean {
   return isBefore(endOfDay(date), startOfDay(new Date()));
 }
-
-
-    
