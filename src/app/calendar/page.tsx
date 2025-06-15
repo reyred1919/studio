@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CalendarDays, CalendarCheck, CalendarClock, CalendarX, ListFilter, Save } from 'lucide-react';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 import type { OkrCycle, CalendarSettings, ScheduledMeeting, CalendarSettingsFormData } from '@/types/okr';
 import { calendarSettingsSchema } from '@/lib/schemas';
@@ -49,13 +50,17 @@ export default function CalendarPage() {
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
   const { toast } = useToast();
 
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<CalendarSettingsFormData>({
+  const { control, handleSubmit, reset, watch, formState: { errors }, setValue } = useForm<CalendarSettingsFormData>({
     resolver: zodResolver(calendarSettingsSchema),
     defaultValues: {
       frequency: 'weekly',
       checkInDayOfWeek: 6, // Saturday
+      // evaluationDate will be undefined by default
     }
   });
+
+  const watchedCheckInDay = watch('checkInDayOfWeek');
+  const watchedEvaluationDate = watch('evaluationDate');
 
   useEffect(() => {
     setIsMounted(true);
@@ -77,12 +82,21 @@ export default function CalendarPage() {
     const storedSettings = localStorage.getItem(CALENDAR_SETTINGS_STORAGE_KEY);
     if (storedSettings) {
       try {
-        const parsedSettings = JSON.parse(storedSettings) as CalendarSettings;
+        const parsedSettings = JSON.parse(storedSettings) as CalendarSettingsFormData; // Use form data type here
          if (parsedSettings.evaluationDate) {
+          // Ensure evaluationDate is a Date object if it was stored as string
           parsedSettings.evaluationDate = parseISO(parsedSettings.evaluationDate as unknown as string);
         }
-        setCalendarSettings(parsedSettings);
-        reset(parsedSettings);
+        // setCalendarSettings is for the actual data used in meeting calculations, not just form.
+        // However, parsedSettings directly from storage matches CalendarSettings if types are aligned.
+        // For clarity, we can cast after parsing date:
+        const loadedCalendarSettings: CalendarSettings = {
+            frequency: parsedSettings.frequency,
+            checkInDayOfWeek: parsedSettings.checkInDayOfWeek, // Should be number if schema transforms
+            evaluationDate: parsedSettings.evaluationDate
+        };
+        setCalendarSettings(loadedCalendarSettings);
+        reset(parsedSettings); // Reset form with loaded & parsed values
       } catch (error) {
         console.error("Failed to parse calendar settings from localStorage", error);
       }
@@ -99,14 +113,36 @@ export default function CalendarPage() {
     }
   }, [calendarSettings, isMounted]);
 
+  // Effect to suggest evaluation date
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const currentOkrCycleEndDate = okrCycle?.endDate;
+    // watchedCheckInDay is a number from the form state due to defaultValues and schema transform
+    const formCheckInDayOfWeek = watchedCheckInDay; 
+
+    if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && watchedEvaluationDate === undefined) {
+      let suggestedDate = setDay(currentOkrCycleEndDate, formCheckInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
+      suggestedDate = startOfDay(suggestedDate);
+
+      if (isAfter(suggestedDate, currentOkrCycleEndDate)) {
+        suggestedDate = addWeeks(suggestedDate, -1);
+      }
+
+      if (okrCycle?.startDate && !isBefore(suggestedDate, startOfDay(okrCycle.startDate))) {
+        setValue('evaluationDate', suggestedDate, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  }, [isMounted, okrCycle, watchedCheckInDay, watchedEvaluationDate, setValue, faIR]);
+
 
   const handleSaveSettings = (data: CalendarSettingsFormData) => {
     const newSettings: CalendarSettings = {
       frequency: data.frequency,
-      checkInDayOfWeek: Number(data.checkInDayOfWeek) as PersianWeekDayValue, // Ensure it's number
+      checkInDayOfWeek: data.checkInDayOfWeek, // Zod schema already transformed it to number
       evaluationDate: data.evaluationDate,
     };
-    setCalendarSettings(newSettings);
+    setCalendarSettings(newSettings); // This will trigger the useEffect to save to localStorage
     toast({
       title: "تنظیمات ذخیره شد",
       description: "تنظیمات تقویم جلسات شما با موفقیت ذخیره شد.",
@@ -123,14 +159,13 @@ export default function CalendarPage() {
     let currentDate = startOfDay(startDate);
     let meetingIdCounter = 0;
 
-    // Calculate Check-in meetings
     if (frequency && checkInDayOfWeek !== undefined) {
-      let firstCheckIn = setDay(currentDate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 /* Saturday */ });
+      let firstCheckIn = setDay(currentDate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
       if (isBefore(firstCheckIn, currentDate)) {
         firstCheckIn = addWeeks(firstCheckIn, 1);
       }
       
-      currentDate = firstCheckIn;
+      currentDate = startOfDay(firstCheckIn); // Ensure we start from a clean day
 
       while (isBefore(currentDate, endDate) || isSameDay(currentDate, endDate)) {
         meetings.push({
@@ -141,40 +176,53 @@ export default function CalendarPage() {
           status: isPast(currentDate) ? (isSameDay(currentDate, new Date()) ? 'today' : 'past') : (isSameDay(currentDate, new Date()) ? 'today' : 'future'),
         });
 
+        let nextMeetingDateCandidate: Date | null = null;
         if (frequency === 'weekly') {
-          currentDate = addWeeks(currentDate, 1);
+          nextMeetingDateCandidate = addWeeks(currentDate, 1);
         } else if (frequency === 'bi-weekly') {
-          currentDate = addWeeks(currentDate, 2);
+          nextMeetingDateCandidate = addWeeks(currentDate, 2);
         } else if (frequency === 'monthly') {
-          // Find the chosenDayOfWeek in the week of (currentDate + 1 month)
-          let nextMonthCandidate = addMonths(currentDate, 1);
-          currentDate = setDay(nextMonthCandidate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-          // Ensure it's forward, e.g. if current is end of month, setDay might go to start of same month or prev.
-          if (isBefore(currentDate, nextMonthCandidate) && !isSameDay(currentDate, nextMonthCandidate) ) {
-             // if setDay put us in the month before nextMonthCandidate, or too early in nextMonthCandidate's month before the original day of month
-             // we want the chosen day of week that is in the month of "nextMonthCandidate"
-             // Example: prev meeting was July 30 (Tuesday). nextMonthCandidate is Aug 30. setDay(Aug 30, Tuesday) -> Aug 27. This is fine.
-             // Example: prev meeting was July 2 (Tuesday). nextMonthCandidate is Aug 2. setDay(Aug 2, Tuesday) -> July 30. Not good.
-             // If it went back, advance it.
-             if(isBefore(currentDate, addMonths(meetings[meetings.length-1].date, 1))){
-                let attempts = 0; // safety break
-                while(isBefore(currentDate, addMonths(meetings[meetings.length-1].date, 1)) && attempts < 5){
-                    currentDate = addWeeks(currentDate, 1); // find the first valid day in the next month cycle
-                    attempts++;
-                }
+          const targetMonthDate = addMonths(currentDate, 1);
+          let potentialNextDate = setDay(targetMonthDate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
+          
+          // If setDay went to the previous month relative to targetMonthDate, or too early in targetMonthDate's month
+          // ensure we find the first occurrence of checkInDayOfWeek in or after targetMonthDate's "day".
+          if (isBefore(potentialNextDate, startOfDay(targetMonthDate))) {
+             // Try to find the day in the week of targetMonthDate or the following weeks
+             let attempts = 0; // safety break
+             while(isBefore(potentialNextDate, startOfDay(targetMonthDate)) && attempts < 5){
+                 potentialNextDate = addWeeks(potentialNextDate, 1); 
+                 attempts++;
              }
           }
+           // If after multiple attempts, it's still before the original meeting + approx 1 month,
+           // it might indicate an issue with very short months or specific day configurations.
+           // This part aims to ensure we move forward by at least a few weeks.
+           if (isBefore(potentialNextDate, addWeeks(currentDate, 3))) { // Heuristic: must be at least ~3 weeks later
+              potentialNextDate = setDay(addMonths(currentDate, 1), checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
+              // If setDay still results in an early date, advance weekly until it's clearly in the next month's cycle
+              while(isBefore(potentialNextDate, addMonths(currentDate,1)) && !isSameDay(potentialNextDate, addMonths(currentDate,1)) ){
+                potentialNextDate = addWeeks(potentialNextDate,1);
+                if (potentialNextDate > endDate) break; // Don't go past end date
+              }
+           }
+          nextMeetingDateCandidate = potentialNextDate;
+
         } else {
           break; 
+        }
+        if (nextMeetingDateCandidate && (isBefore(nextMeetingDateCandidate, endDate) || isSameDay(nextMeetingDateCandidate, endDate))) {
+          currentDate = startOfDay(nextMeetingDateCandidate);
+        } else {
+          break; // Next meeting would be outside the cycle
         }
       }
     }
     
-    // Add Evaluation meeting
-    if (evaluationDate && (isBefore(evaluationDate, endDate) || isSameDay(evaluationDate, endDate)) && isAfter(evaluationDate, startDate) ) {
+    if (evaluationDate && (isBefore(evaluationDate, endDate) || isSameDay(evaluationDate, endDate)) && (isAfter(evaluationDate, startDate) || isSameDay(evaluationDate, startDate)) ) {
       meetings.push({
         id: 'evaluation-meeting',
-        date: evaluationDate,
+        date: startOfDay(evaluationDate),
         type: 'evaluation',
         title: 'جلسه ارزیابی نهایی OKR',
         status: isPast(evaluationDate) ? (isSameDay(evaluationDate, new Date()) ? 'today' : 'past') : (isSameDay(evaluationDate, new Date()) ? 'today' : 'future'),
@@ -236,7 +284,6 @@ export default function CalendarPage() {
   return (
     <PageContainer>
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Settings Panel */}
         <Card className="w-full md:w-1/3 lg:w-1/4 shadow-lg self-start sticky top-6">
           <CardHeader>
             <CardTitle className="font-headline text-xl flex items-center gap-2">
@@ -276,7 +323,10 @@ export default function CalendarPage() {
                   name="checkInDayOfWeek"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={String(field.value)}>
+                    <Select 
+                        onValueChange={(value) => field.onChange(Number(value))} // Ensure number is passed
+                        value={String(field.value)} // field.value is number, Select expects string
+                    >
                       <SelectTrigger id="checkInDayOfWeek" className="mt-1">
                         <SelectValue placeholder="انتخاب روز هفته" />
                       </SelectTrigger>
@@ -302,7 +352,11 @@ export default function CalendarPage() {
                         setDate={field.onChange}
                         placeholderText="انتخاب تاریخ ارزیابی"
                         className="mt-1"
-                        disabled={(date) => isBefore(date, startOfDay(okrCycle.startDate)) || isAfter(date, endOfDay(okrCycle.endDate))}
+                        disabled={(date) => 
+                            !okrCycle || // Disable if no cycle
+                            isBefore(date, startOfDay(okrCycle.startDate)) || 
+                            isAfter(date, endOfDay(okrCycle.endDate))
+                        }
                       />
                   )}
                 />
@@ -319,7 +373,6 @@ export default function CalendarPage() {
           </form>
         </Card>
 
-        {/* Meetings Timeline Panel */}
         <Card className="w-full md:w-2/3 lg:w-3/4 shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline text-xl flex items-center gap-2">
@@ -345,7 +398,7 @@ export default function CalendarPage() {
                       </p>
                     </div>
                     {meeting.status === 'today' && <Badge variant="default" className="bg-primary text-primary-foreground">امروز</Badge>}
-                    {meeting.status === 'future' && <Badge variant="outline">آینده</Badge>}
+                    {meeting.status === 'future' && <Badge variant="outline" className="border-foreground/50 text-foreground/80">آینده</Badge>}
                     {meeting.status === 'past' && <Badge variant="secondary" className="bg-muted text-muted-foreground">گذشته</Badge>}
                   </div>
                 ))}
@@ -371,7 +424,9 @@ export default function CalendarPage() {
   );
 }
 
-// Helper to check if a date is in the past (excluding today)
 function isPast(date: Date): boolean {
   return isBefore(endOfDay(date), startOfDay(new Date()));
 }
+
+
+    
