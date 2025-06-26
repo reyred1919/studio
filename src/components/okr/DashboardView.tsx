@@ -230,6 +230,7 @@ export function DashboardView() {
         .map(([key, count]) => ({
             name: key,
             value: count,
+            fill: confidenceChartConfig[key as ConfidenceChartKey]?.color,
         }))
         .filter(item => item.value > 0);
 
@@ -334,7 +335,7 @@ export function DashboardView() {
                     <PieChart>
                     <ChartTooltip
                       cursor={false}
-                      content={<ChartTooltipContent indicator="dot" hideLabel />}
+                      content={<ChartTooltipContent indicator="dot" hideLabel nameKey="name"/>}
                     />
                     <Pie
                         data={summaryStats.confidenceChartData}
@@ -344,8 +345,8 @@ export function DashboardView() {
                         strokeWidth={5}
                         paddingAngle={5}
                     >
-                        {summaryStats.confidenceChartData.map((entry) => (
-                            <Cell key={`cell-${entry.name}`} fill={confidenceChartConfig[entry.name as ConfidenceChartKey]?.color} />
+                         {summaryStats.confidenceChartData.map((entry) => (
+                          <Cell key={`cell-${entry.name}`} fill={entry.fill} className="focus:outline-none" />
                         ))}
                     </Pie>
                     <ChartLegend
@@ -365,9 +366,16 @@ export function DashboardView() {
             <CardContent className="min-h-[300px] flex items-center">
                 {summaryStats.initiativeChartData.some(d => d.count > 0) ? (
                 <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
-                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 10, top: 10, bottom: 10 }}>
+                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 20, top: 10, bottom: 10 }}>
                       <XAxis type="number" hide />
-                      <YAxis dataKey="status" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} 
+                      <YAxis 
+                        orientation="right"
+                        dataKey="status" 
+                        type="category" 
+                        tickLine={false} 
+                        axisLine={false} 
+                        tickMargin={10} 
+                        width={80} 
                         tickFormatter={(value) => initiativeChartConfig[value as InitiativeChartKey]?.label || value}
                       />
                       <ChartTooltip
@@ -418,5 +426,7 @@ export function DashboardView() {
     </>
   );
 }
+
+    
 
     
