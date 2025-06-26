@@ -7,7 +7,7 @@ import type { ConfidenceLevel } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, Clock, ArrowRight, List, CheckCircle, AlertTriangle, Smile, Meh, Frown, GanttChartSquare } from 'lucide-react';
+import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight } from 'lucide-react';
 import { Bar, BarChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
 import {
   ChartContainer,
@@ -67,9 +67,6 @@ const initialObjectivesData: Objective[] = [
 ];
 
 const confidenceChartConfig = {
-  items: {
-    label: "سطح اطمینان",
-  },
   high: { label: "زیاد", color: "hsl(var(--chart-2))", icon: Smile },
   medium: { label: "متوسط", color: "hsl(var(--chart-4))", icon: Meh },
   low: { label: "کم", color: "hsl(var(--chart-5))", icon: Frown },
@@ -85,24 +82,39 @@ const confidenceLevelToKey: Record<ConfidenceLevel, ConfidenceChartKey> = {
     'در معرض خطر': 'at_risk',
 };
 
-
 const initiativeChartConfig = {
-    count: {
-        label: "تعداد",
-    },
     completed: { label: 'تکمیل شده', color: "hsl(var(--chart-2))" },
     in_progress: { label: 'در حال انجام', color: "hsl(var(--primary))" },
     not_started: { label: 'شروع نشده', color: "hsl(var(--muted))" },
     blocked: { label: 'مسدود شده', color: "hsl(var(--chart-1))" },
 } satisfies ChartConfig;
 
-type InitiativeChartKey = keyof typeof initiativeChartConfig;
+type InitiativeChartKey = keyof Omit<typeof initiativeChartConfig, 'count'>;
 
 const initiativeStatusToKey: Record<InitiativeStatus, InitiativeChartKey> = {
     'تکمیل شده': 'completed',
     'در حال انجام': 'in_progress',
     'شروع نشده': 'not_started',
     'مسدود شده': 'blocked',
+};
+
+const getProgressIndicatorClass = (progress: number): string => {
+    if (progress >= 75) return 'bg-[hsl(var(--chart-2))]';
+    if (progress >= 40) return 'bg-[hsl(var(--chart-4))]';
+    return 'bg-[hsl(var(--chart-1))]';
+};
+
+const getProgressColorClass = (progress: number): string => {
+    if (progress >= 75) return 'text-green-600';
+    if (progress >= 40) return 'text-yellow-500';
+    return 'text-red-600';
+};
+
+const getProgressIcon = (progress: number) => {
+    const className = `w-7 h-7 flex-shrink-0 ${getProgressColorClass(progress)}`;
+    if (progress >= 75) return <TrendingUp className={className} />;
+    if (progress >= 40) return <ChevronsRight className={className} />;
+    return <AlertTriangle className={className} />;
 };
 
 
@@ -158,11 +170,11 @@ export function DashboardView() {
     let totalProgressSum = 0;
     let totalKeyResultsCount = 0;
 
-    const krsByConfidence: Record<ConfidenceLevel, number> = {
-      'زیاد': 0, 'متوسط': 0, 'کم': 0, 'در معرض خطر': 0,
+    const krsByConfidence: Record<ConfidenceChartKey, number> = {
+      high: 0, medium: 0, low: 0, at_risk: 0,
     };
-    const initiativesByStatus: Record<InitiativeStatus, number> = {
-      'شروع نشده': 0, 'در حال انجام': 0, 'تکمیل شده': 0, 'مسدود شده': 0,
+    const initiativesByStatus: Record<InitiativeChartKey, number> = {
+      not_started: 0, in_progress: 0, completed: 0, blocked: 0,
     };
     const objectivesWithProgress: { id: string; description: string; progress: number }[] = [];
 
@@ -173,12 +185,14 @@ export function DashboardView() {
       obj.keyResults.forEach(kr => {
         totalProgressSum += kr.progress;
         totalKeyResultsCount++;
-        if (krsByConfidence[kr.confidenceLevel] !== undefined) krsByConfidence[kr.confidenceLevel]++;
+        const confidenceKey = confidenceLevelToKey[kr.confidenceLevel];
+        if (krsByConfidence[confidenceKey] !== undefined) krsByConfidence[confidenceKey]++;
         
         kr.initiatives.forEach(init => {
-          if (initiativesByStatus[init.status] !== undefined) {
-              initiativesByStatus[init.status]++;
-          }
+            const statusKey = initiativeStatusToKey[init.status];
+            if (initiativesByStatus[statusKey] !== undefined) {
+              initiativesByStatus[statusKey]++;
+            }
         });
         totalKrProgress += kr.progress;
       });
@@ -213,21 +227,16 @@ export function DashboardView() {
     }
     
     const confidenceChartData = Object.entries(krsByConfidence)
-      .map(([level, count]) => {
-          const key = confidenceLevelToKey[level as ConfidenceLevel];
-          return {
-            level: key,
+      .map(([level, count]) => ({
+            level,
             count,
-            fill: confidenceChartConfig[key]?.color || 'hsl(var(--muted))'
+            fill: confidenceChartConfig[level as ConfidenceChartKey]?.color || 'hsl(var(--muted))'
           }
-      })
+      ))
       .filter(item => item.count > 0);
 
     const initiativeChartData = Object.entries(initiativesByStatus)
-        .map(([status, count]) => {
-            const key = initiativeStatusToKey[status as InitiativeStatus];
-            return ({ status: key, count });
-        });
+        .map(([status, count]) => ({ status: status, count }));
 
     return {
       totalObjectives: objectives.length,
@@ -315,18 +324,18 @@ export function DashboardView() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mt-8">
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <Card className="lg:col-span-1">
             <CardHeader>
                 <CardTitle className="font-headline text-lg">سطح اطمینان نتایج کلیدی</CardTitle>
                 <CardDescription>توزیع نتایج کلیدی بر اساس سطح اطمینان.</CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center">
+            <CardContent className="flex justify-center min-h-[300px] items-center">
                 {summaryStats.confidenceChartData.length > 0 ? (
                 <ChartContainer config={confidenceChartConfig} className="mx-auto aspect-square max-h-[250px]">
                     <PieChart>
                     <ChartTooltip content={<ChartTooltipContent nameKey="level" hideLabel />} />
-                    <Pie data={summaryStats.confidenceChartData} dataKey="count" nameKey="level" innerRadius={50} strokeWidth={5} paddingAngle={5}>
+                    <Pie data={summaryStats.confidenceChartData} dataKey="count" nameKey="level" innerRadius={60} strokeWidth={5} paddingAngle={5}>
                         {summaryStats.confidenceChartData.map((entry) => (
                             <Cell key={entry.level} fill={entry.fill} />
                         ))}
@@ -337,15 +346,15 @@ export function DashboardView() {
                 ) : <p className="text-center text-muted-foreground py-12">داده‌ای برای نمایش وجود ندارد.</p>}
             </CardContent>
         </Card>
-        <Card className="lg:col-span-3">
+        <Card className="lg:col-span-1">
             <CardHeader>
                 <CardTitle className="font-headline text-lg">وضعیت اقدامات</CardTitle>
                 <CardDescription>توزیع اقدامات بر اساس وضعیت فعلی آنها.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-h-[300px] flex items-center">
                 {summaryStats.initiativeChartData.some(d => d.count > 0) ? (
                 <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
-                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 10, top: 10, bottom: 10 }}>
                       <XAxis type="number" hide />
                       <YAxis dataKey="status" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} 
                         tickFormatter={(value) => initiativeChartConfig[value as InitiativeChartKey]?.label || value}
@@ -354,14 +363,14 @@ export function DashboardView() {
                           cursor={false}
                           content={<ChartTooltipContent indicator="line" nameKey="status" />}
                       />
-                      <Bar dataKey="count" layout="vertical" radius={5} barSize={25}>
+                      <Bar dataKey="count" layout="vertical" radius={5} barSize={35}>
                           {summaryStats.initiativeChartData.map((entry) => (
                               <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeChartKey]?.color || 'hsl(var(--muted))'} />
                           ))}
                       </Bar>
                     </BarChart>
                 </ChartContainer>
-                ) : <p className="text-center text-muted-foreground py-12">هیچ اقدامی تعریف نشده است.</p>}
+                ) : <p className="text-center text-muted-foreground py-12 w-full">هیچ اقدامی تعریف نشده است.</p>}
             </CardContent>
         </Card>
       </div>
@@ -375,12 +384,13 @@ export function DashboardView() {
             {summaryStats.objectivesWithProgress.length > 0 ? (
                 <div className="space-y-4">
                     {summaryStats.objectivesWithProgress.map(obj => (
-                        <div key={obj.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                            <p className="font-medium text-foreground truncate mb-2">{obj.description}</p>
-                            <div className="flex items-center gap-3">
-                                <Progress value={obj.progress} className="h-2 flex-grow" />
-                                <span className="text-sm font-semibold w-12 text-right">{obj.progress}%</span>
+                        <div key={obj.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors duration-200">
+                            {getProgressIcon(obj.progress)}
+                            <div className="flex-grow">
+                                <p className="font-medium text-foreground truncate mb-1.5">{obj.description}</p>
+                                <Progress value={obj.progress} className="h-2.5" indicatorClassName={getProgressIndicatorClass(obj.progress)} />
                             </div>
+                            <span className={`text-xl font-semibold w-16 text-right ${getProgressColorClass(obj.progress)}`}>{obj.progress}%</span>
                         </div>
                     ))}
                 </div>
@@ -397,7 +407,3 @@ export function DashboardView() {
     </>
   );
 }
-
-    
-
-    
