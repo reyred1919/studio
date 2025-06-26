@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, PlusCircle } from 'lucide-react';
 
 interface ManageInitiativeDialogProps {
@@ -66,16 +65,15 @@ export function ManageInitiativeDialog({ isOpen, onClose, initiative, onSave }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">مدیریت اقدام و وظایف</DialogTitle>
           <DialogDescription>
             شرح و وضعیت اقدام را ویرایش کرده و وظایف زیرمجموعه آن را مدیریت کنید.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(processSubmit)} className="flex-grow flex flex-col overflow-hidden">
-          <ScrollArea className="flex-grow pr-4 -mr-4">
-            <div className="space-y-6 pr-2">
+        <form onSubmit={handleSubmit(processSubmit)}>
+            <div className="space-y-6 pt-4 pr-1">
               <div>
                 <Label htmlFor="initiative-description" className="font-semibold">شرح اقدام</Label>
                 <Textarea
@@ -145,9 +143,8 @@ export function ManageInitiativeDialog({ isOpen, onClose, initiative, onSave }: 
                 </Button>
               </div>
             </div>
-          </ScrollArea>
           
-          <DialogFooter className="mt-6 pt-4 border-t bg-background">
+          <DialogFooter className="mt-8 pt-6 border-t sticky bottom-0 bg-background py-4">
             <DialogClose asChild>
               <Button type="button" variant="outline">انصراف</Button>
             </DialogClose>
