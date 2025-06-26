@@ -1,15 +1,25 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Objective, OkrCycle } from '@/types/okr';
+import type { Objective, OkrCycle, InitiativeStatus } from '@/types/okr';
 import type { ConfidenceLevel } from '@/lib/constants';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, AlertTriangle, Smile, CheckCircle2, Activity, XOctagon, Clock, ArrowRight } from 'lucide-react';
+import { Target, TrendingUp, Clock, ArrowRight, List, CheckCircle, AlertTriangle, Smile, Meh, Frown } from 'lucide-react';
+import { Bar, BarChart, Pie, PieChart, Cell } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { faIR } from 'date-fns/locale';
 import Link from 'next/link';
+import type { ChartConfig } from '@/components/ui/chart';
 
 const initialObjectivesData: Objective[] = [
   {
@@ -56,6 +66,27 @@ const initialObjectivesData: Objective[] = [
   }
 ];
 
+const confidenceChartConfig = {
+  items: {
+    label: "سطح اطمینان",
+  },
+  'زیاد': { label: "زیاد", color: "hsl(var(--chart-2))", icon: Smile },
+  'متوسط': { label: "متوسط", color: "hsl(var(--chart-4))", icon: Meh },
+  'کم': { label: "کم", color: "hsl(var(--chart-5))", icon: Frown },
+  'در معرض خطر': { label: "در معرض خطر", color: "hsl(var(--chart-1))", icon: AlertTriangle },
+} satisfies ChartConfig;
+
+const initiativeChartConfig = {
+    count: {
+        label: "تعداد",
+    },
+    'تکمیل شده': { color: "hsl(var(--chart-2))" },
+    'در حال انجام': { color: "hsl(var(--chart-4))" },
+    'شروع نشده': { color: "hsl(var(--muted))" },
+    'مسدود شده': { color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig;
+
+
 export function DashboardView() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
@@ -76,14 +107,13 @@ export function DashboardView() {
       }
     }
 
-    // Data migration: ensure all initiatives have a tasks array
     const objectivesWithTasks = loadedObjectives.map(obj => ({
         ...obj,
         keyResults: obj.keyResults.map(kr => ({
             ...kr,
             initiatives: kr.initiatives.map(init => ({
                 ...init,
-                tasks: init.tasks || [], // Add empty tasks array if it doesn't exist
+                tasks: init.tasks || [],
             })),
         })),
     }));
@@ -108,24 +138,37 @@ export function DashboardView() {
   const summaryStats = useMemo(() => {
     let totalProgressSum = 0;
     let totalKeyResultsCount = 0;
-    let completedKeyResults = 0;
-    let initiativesInProgress = 0;
-    let initiativesBlocked = 0;
 
     const krsByConfidence: Record<ConfidenceLevel, number> = {
       'زیاد': 0, 'متوسط': 0, 'کم': 0, 'در معرض خطر': 0,
     };
+    const initiativesByStatus: Record<InitiativeStatus, number> = {
+      'شروع نشده': 0, 'در حال انجام': 0, 'تکمیل شده': 0, 'مسدود شده': 0,
+    };
+    const objectivesWithProgress: { id: string; description: string; progress: number }[] = [];
 
     objectives.forEach(obj => {
+      let totalKrProgress = 0;
+      let keyResultsCountInObj = obj.keyResults.length;
+      
       obj.keyResults.forEach(kr => {
         totalProgressSum += kr.progress;
         totalKeyResultsCount++;
-        if (kr.progress === 100) completedKeyResults++;
         if (krsByConfidence[kr.confidenceLevel] !== undefined) krsByConfidence[kr.confidenceLevel]++;
+        
         kr.initiatives.forEach(init => {
-          if (init.status === 'در حال انجام') initiativesInProgress++;
-          else if (init.status === 'مسدود شده') initiativesBlocked++;
+          if (initiativesByStatus[init.status] !== undefined) {
+              initiativesByStatus[init.status]++;
+          }
         });
+        totalKrProgress += kr.progress;
+      });
+      
+      const objectiveProgress = keyResultsCountInObj > 0 ? totalKrProgress / keyResultsCountInObj : 0;
+      objectivesWithProgress.push({
+        id: obj.id,
+        description: obj.description,
+        progress: Math.round(objectiveProgress),
       });
     });
 
@@ -134,12 +177,9 @@ export function DashboardView() {
     let remainingDays: number | null = null;
     let cycleElapsedPercentage: number = 0;
     if (okrCycle && okrCycle.startDate && okrCycle.endDate) {
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const cycleEndDate = new Date(okrCycle.endDate);
-      cycleEndDate.setHours(0,0,0,0);
-      const cycleStartDate = new Date(okrCycle.startDate);
-      cycleStartDate.setHours(0,0,0,0);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const cycleEndDate = new Date(okrCycle.endDate); cycleEndDate.setHours(0,0,0,0);
+      const cycleStartDate = new Date(okrCycle.startDate); cycleStartDate.setHours(0,0,0,0);
 
       remainingDays = differenceInCalendarDays(cycleEndDate, today);
       if (remainingDays < 0) remainingDays = 0;
@@ -152,27 +192,33 @@ export function DashboardView() {
         cycleElapsedPercentage = 100;
       }
     }
+    
+    const confidenceChartData = Object.entries(krsByConfidence)
+      .map(([level, count]) => ({ level, count, fill: confidenceChartConfig[level as ConfidenceLevel]?.color || 'hsl(var(--muted))' }))
+      .filter(item => item.count > 0);
+
+    const initiativeChartData = Object.entries(initiativesByStatus)
+        .map(([status, count]) => ({ status, count }));
 
     return {
       totalObjectives: objectives.length,
       averageProgress: parseFloat(averageProgress.toFixed(1)),
-      krsByConfidence,
-      completedKeyResults,
-      initiativesInProgress,
-      initiativesBlocked,
       remainingDays,
       cycleElapsedPercentage,
       cycleDates: okrCycle ? { 
-        start: format(okrCycle.startDate, "d MMMM yyyy", { locale: faIR }), 
+        start: format(okrCycle.startDate, "d MMMM", { locale: faIR }), 
         end: format(okrCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
-      } : null
+      } : null,
+      confidenceChartData,
+      initiativeChartData,
+      objectivesWithProgress,
     };
   }, [objectives, okrCycle]);
 
   if (!isMounted) {
      return (
        <div className="flex flex-col items-center justify-center h-[60vh]">
-         <Activity className="w-16 h-16 text-primary mb-6 animate-pulse" />
+         <TrendingUp className="w-16 h-16 text-primary mb-6 animate-pulse" />
          <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری داشبورد...</h1>
        </div>
      );
@@ -190,7 +236,7 @@ export function DashboardView() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
@@ -198,6 +244,7 @@ export function DashboardView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
+            <p className="text-xs text-muted-foreground">اهداف فعال در این چرخه</p>
           </CardContent>
         </Card>
         <Card>
@@ -207,76 +254,98 @@ export function DashboardView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
-            {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
+            {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2" />}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">روزهای باقیمانده چرخه</CardTitle>
+            <CardTitle className="text-sm font-medium">روزهای باقیمانده</CardTitle>
             <Clock className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {summaryStats.remainingDays !== null ? `${summaryStats.remainingDays} روز` : 'تنظیم نشده'}
             </div>
-            {summaryStats.remainingDays !== null && okrCycle && (
-              <>
-                <Progress value={summaryStats.cycleElapsedPercentage} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />
-                {summaryStats.cycleDates && <p className="text-xs text-muted-foreground mt-1 text-center">{summaryStats.cycleDates.start} - {summaryStats.cycleDates.end}</p>}
-              </>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">نتایج کلیدی با اطمینان زیاد</CardTitle>
-            <Smile className="h-5 w-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.krsByConfidence['زیاد']}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">نتایج کلیدی در معرض خطر</CardTitle>
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.krsByConfidence['در معرض خطر']}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">نتایج کلیدی تکمیل‌شده</CardTitle>
-            <CheckCircle2 className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.completedKeyResults}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">اقدامات در حال انجام</CardTitle>
-            <Activity className="h-5 w-5 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.initiativesInProgress}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">اقدامات مسدود شده</CardTitle>
-            <XOctagon className="h-5 w-5 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.initiativesBlocked}</div>
+             {summaryStats.cycleDates && <p className="text-xs text-muted-foreground">تا {summaryStats.cycleDates.end}</p>}
           </CardContent>
         </Card>
       </div>
 
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">برای افزودن، ویرایش و بروزرسانی اهداف به صفحه مدیریت اهداف مراجعه کنید.</p>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mt-8">
+        <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="font-headline text-lg">سطح اطمینان نتایج کلیدی</CardTitle>
+                <CardDescription>توزیع نتایج کلیدی بر اساس سطح اطمینان</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {summaryStats.confidenceChartData.length > 0 ? (
+                <ChartContainer config={confidenceChartConfig} className="mx-auto aspect-square max-h-[250px]">
+                    <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="level" hideLabel />} />
+                    <Pie data={summaryStats.confidenceChartData} dataKey="count" nameKey="level" innerRadius={60} strokeWidth={5}>
+                        {summaryStats.confidenceChartData.map((entry) => (
+                            <Cell key={entry.level} fill={entry.fill} />
+                        ))}
+                    </Pie>
+                    <ChartLegend content={<ChartLegendContent nameKey="level" />} />
+                    </PieChart>
+                </ChartContainer>
+                ) : <p className="text-center text-muted-foreground py-12">داده‌ای برای نمایش وجود ندارد.</p>}
+            </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+            <CardHeader>
+                <CardTitle className="font-headline text-lg">وضعیت اقدامات</CardTitle>
+                <CardDescription>تعداد اقدامات در هر وضعیت</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {summaryStats.initiativeChartData.some(d => d.count > 0) ? (
+                <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
+                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ right: 10, left: 30 }}>
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="line" />}
+                    />
+                    <Bar dataKey="count" layout="vertical" radius={5}>
+                        {summaryStats.initiativeChartData.map((entry) => (
+                            <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeStatus]?.color || 'hsl(var(--muted))'} />
+                        ))}
+                    </Bar>
+                    </BarChart>
+                </ChartContainer>
+                ) : <p className="text-center text-muted-foreground py-12">هیچ اقدامی تعریف نشده است.</p>}
+            </CardContent>
+        </Card>
       </div>
+
+      <Card className="mt-8">
+        <CardHeader>
+            <CardTitle className="font-headline text-lg flex items-center gap-2"><List className="w-5 h-5"/> نمای کلی پیشرفت اهداف</CardTitle>
+            <CardDescription>پیشرفت هر هدف بر اساس میانگین پیشرفت نتایج کلیدی آن محاسبه شده است.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {summaryStats.objectivesWithProgress.length > 0 ? (
+                <div className="space-y-4">
+                    {summaryStats.objectivesWithProgress.map(obj => (
+                        <div key={obj.id} className="p-3 border rounded-lg bg-muted/30">
+                            <p className="font-medium text-foreground truncate mb-2">{obj.description}</p>
+                            <div className="flex items-center gap-3">
+                                <Progress value={obj.progress} className="h-2.5 flex-grow" />
+                                <span className="text-sm font-semibold w-12 text-right">{obj.progress}%</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-muted-foreground">هنوز هدفی تعریف نشده است.</p>
+                    <Button asChild variant="link" className="mt-2">
+                        <Link href="/objectives">همین حالا یک هدف اضافه کنید</Link>
+                    </Button>
+                </div>
+            )}
+        </CardContent>
+      </Card>
     </>
   );
 }
