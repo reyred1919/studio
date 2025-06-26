@@ -7,8 +7,8 @@ import type { ConfidenceLevel } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, Clock, ArrowRight, List, CheckCircle, AlertTriangle, Smile, Meh, Frown } from 'lucide-react';
-import { Bar, BarChart, Pie, PieChart, Cell } from 'recharts';
+import { Target, TrendingUp, Clock, ArrowRight, List, CheckCircle, AlertTriangle, Smile, Meh, Frown, GanttChartSquare } from 'lucide-react';
+import { Bar, BarChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -80,10 +80,10 @@ const initiativeChartConfig = {
     count: {
         label: "تعداد",
     },
-    'تکمیل شده': { color: "hsl(var(--chart-2))" },
-    'در حال انجام': { color: "hsl(var(--chart-4))" },
-    'شروع نشده': { color: "hsl(var(--muted))" },
-    'مسدود شده': { color: "hsl(var(--chart-1))" },
+    'تکمیل شده': { label: 'تکمیل شده', color: "hsl(var(--chart-2))" },
+    'در حال انجام': { label: 'در حال انجام', color: "hsl(var(--primary))" },
+    'شروع نشده': { label: 'شروع نشده', color: "hsl(var(--muted))" },
+    'مسدود شده': { label: 'مسدود شده', color: "hsl(var(--chart-1))" },
 } satisfies ChartConfig;
 
 
@@ -204,7 +204,7 @@ export function DashboardView() {
       totalObjectives: objectives.length,
       averageProgress: parseFloat(averageProgress.toFixed(1)),
       remainingDays,
-      cycleElapsedPercentage,
+      cycleElapsedPercentage: Math.round(cycleElapsedPercentage),
       cycleDates: okrCycle ? { 
         start: format(okrCycle.startDate, "d MMMM", { locale: faIR }), 
         end: format(okrCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
@@ -236,37 +236,52 @@ export function DashboardView() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
+            <CardTitle className="text-sm font-medium">اهداف فعال</CardTitle>
             <Target className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
-            <p className="text-xs text-muted-foreground">اهداف فعال در این چرخه</p>
+            <p className="text-xs text-muted-foreground">اهداف تعریف شده در این چرخه</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">میانگین پیشرفت</CardTitle>
+            <CardTitle className="text-sm font-medium">میانگین پیشرفت کل</CardTitle>
             <TrendingUp className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
-            {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2" />}
+            <Progress value={summaryStats.averageProgress} className="h-2 mt-2" />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">روزهای باقیمانده</CardTitle>
-            <Clock className="h-5 w-5 text-muted-foreground" />
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+                <CardTitle className="text-sm font-medium">نمای زمانی چرخه</CardTitle>
+                <Clock className="h-5 w-5 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {summaryStats.remainingDays !== null ? `${summaryStats.remainingDays} روز` : 'تنظیم نشده'}
+            <div className="flex items-center justify-between">
+                <div className="text-lg font-bold">
+                    {summaryStats.remainingDays !== null ? `${summaryStats.remainingDays} روز` : 'نامشخص'}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                    {summaryStats.remainingDays !== null ? 'باقیمانده' : 'چرخه تنظیم نشده'}
+                </div>
             </div>
-             {summaryStats.cycleDates && <p className="text-xs text-muted-foreground">تا {summaryStats.cycleDates.end}</p>}
+            {summaryStats.cycleDates && (
+                 <>
+                    <Progress value={summaryStats.cycleElapsedPercentage} className="h-2 my-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>شروع: {summaryStats.cycleDates.start}</span>
+                        <span>پایان: {summaryStats.cycleDates.end}</span>
+                    </div>
+                </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -275,14 +290,14 @@ export function DashboardView() {
         <Card className="lg:col-span-2">
             <CardHeader>
                 <CardTitle className="font-headline text-lg">سطح اطمینان نتایج کلیدی</CardTitle>
-                <CardDescription>توزیع نتایج کلیدی بر اساس سطح اطمینان</CardDescription>
+                <CardDescription>توزیع نتایج کلیدی بر اساس سطح اطمینان.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex justify-center">
                 {summaryStats.confidenceChartData.length > 0 ? (
                 <ChartContainer config={confidenceChartConfig} className="mx-auto aspect-square max-h-[250px]">
                     <PieChart>
                     <ChartTooltip content={<ChartTooltipContent nameKey="level" hideLabel />} />
-                    <Pie data={summaryStats.confidenceChartData} dataKey="count" nameKey="level" innerRadius={60} strokeWidth={5}>
+                    <Pie data={summaryStats.confidenceChartData} dataKey="count" nameKey="level" innerRadius={50} strokeWidth={5} paddingAngle={5}>
                         {summaryStats.confidenceChartData.map((entry) => (
                             <Cell key={entry.level} fill={entry.fill} />
                         ))}
@@ -296,21 +311,23 @@ export function DashboardView() {
         <Card className="lg:col-span-3">
             <CardHeader>
                 <CardTitle className="font-headline text-lg">وضعیت اقدامات</CardTitle>
-                <CardDescription>تعداد اقدامات در هر وضعیت</CardDescription>
+                <CardDescription>توزیع اقدامات بر اساس وضعیت فعلی آنها.</CardDescription>
             </CardHeader>
             <CardContent>
                 {summaryStats.initiativeChartData.some(d => d.count > 0) ? (
                 <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
-                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ right: 10, left: 30 }}>
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent indicator="line" />}
-                    />
-                    <Bar dataKey="count" layout="vertical" radius={5}>
-                        {summaryStats.initiativeChartData.map((entry) => (
-                            <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeStatus]?.color || 'hsl(var(--muted))'} />
-                        ))}
-                    </Bar>
+                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="status" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} />
+                      <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent indicator="line" nameKey="status" />}
+                      />
+                      <Bar dataKey="count" layout="vertical" radius={5} barSize={25}>
+                          {summaryStats.initiativeChartData.map((entry) => (
+                              <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeStatus]?.color || 'hsl(var(--muted))'} />
+                          ))}
+                      </Bar>
                     </BarChart>
                 </ChartContainer>
                 ) : <p className="text-center text-muted-foreground py-12">هیچ اقدامی تعریف نشده است.</p>}
@@ -320,17 +337,17 @@ export function DashboardView() {
 
       <Card className="mt-8">
         <CardHeader>
-            <CardTitle className="font-headline text-lg flex items-center gap-2"><List className="w-5 h-5"/> نمای کلی پیشرفت اهداف</CardTitle>
+            <CardTitle className="font-headline text-lg flex items-center gap-2"><GanttChartSquare className="w-5 h-5 text-primary"/> نمای کلی پیشرفت اهداف</CardTitle>
             <CardDescription>پیشرفت هر هدف بر اساس میانگین پیشرفت نتایج کلیدی آن محاسبه شده است.</CardDescription>
         </CardHeader>
         <CardContent>
             {summaryStats.objectivesWithProgress.length > 0 ? (
                 <div className="space-y-4">
                     {summaryStats.objectivesWithProgress.map(obj => (
-                        <div key={obj.id} className="p-3 border rounded-lg bg-muted/30">
+                        <div key={obj.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                             <p className="font-medium text-foreground truncate mb-2">{obj.description}</p>
                             <div className="flex items-center gap-3">
-                                <Progress value={obj.progress} className="h-2.5 flex-grow" />
+                                <Progress value={obj.progress} className="h-2 flex-grow" />
                                 <span className="text-sm font-semibold w-12 text-right">{obj.progress}%</span>
                             </div>
                         </div>
@@ -349,3 +366,5 @@ export function DashboardView() {
     </>
   );
 }
+
+    
