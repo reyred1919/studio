@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight } from 'lucide-react';
-import { Bar, BarChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, Pie, PieChart, Cell, XAxis, YAxis, LabelList } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -366,7 +366,7 @@ export function DashboardView() {
             <CardContent className="min-h-[300px] flex items-center">
                 {summaryStats.initiativeChartData.some(d => d.count > 0) ? (
                 <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
-                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 20, top: 10, bottom: 10 }}>
+                    <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 40, top: 10, bottom: 10 }}>
                       <XAxis type="number" hide />
                       <YAxis 
                         orientation="right"
@@ -378,11 +378,8 @@ export function DashboardView() {
                         width={80} 
                         tickFormatter={(value) => initiativeChartConfig[value as InitiativeChartKey]?.label || value}
                       />
-                      <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent indicator="line" nameKey="status" />}
-                      />
                       <Bar dataKey="count" layout="vertical" radius={5} barSize={35}>
+                          <LabelList dataKey="count" position="right" offset={8} className="fill-foreground text-sm font-bold" />
                           {summaryStats.initiativeChartData.map((entry) => (
                               <Cell key={`cell-${entry.status}`} fill={initiativeChartConfig[entry.status as InitiativeChartKey]?.color || 'hsl(var(--muted))'} />
                           ))}
