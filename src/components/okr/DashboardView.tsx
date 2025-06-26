@@ -89,7 +89,7 @@ const initiativeChartConfig = {
     blocked: { label: 'مسدود شده', color: "hsl(var(--chart-1))" },
 } satisfies ChartConfig;
 
-type InitiativeChartKey = keyof Omit<typeof initiativeChartConfig, 'count'>;
+type InitiativeChartKey = keyof typeof initiativeChartConfig;
 
 const initiativeStatusToKey: Record<InitiativeStatus, InitiativeChartKey> = {
     'تکمیل شده': 'completed',
@@ -323,7 +323,7 @@ export function DashboardView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-        <Card className="lg:col-span-1">
+        <Card>
             <CardHeader>
                 <CardTitle className="font-headline text-lg">سطح اطمینان نتایج کلیدی</CardTitle>
                 <CardDescription>توزیع نتایج کلیدی بر اساس سطح اطمینان.</CardDescription>
@@ -350,13 +350,14 @@ export function DashboardView() {
                     </Pie>
                     <ChartLegend
                       content={<ChartLegendContent nameKey="name" />}
+                      className="[&_.recharts-legend-item-text]:text-muted-foreground"
                     />
                     </PieChart>
                 </ChartContainer>
                 ) : <p className="text-center text-muted-foreground py-12">داده‌ای برای نمایش وجود ندارد.</p>}
             </CardContent>
         </Card>
-        <Card className="lg:col-span-1">
+        <Card>
             <CardHeader>
                 <CardTitle className="font-headline text-lg">وضعیت اقدامات</CardTitle>
                 <CardDescription>توزیع اقدامات بر اساس وضعیت فعلی آنها.</CardDescription>
@@ -417,3 +418,5 @@ export function DashboardView() {
     </>
   );
 }
+
+    
