@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -125,24 +126,74 @@ export default function TasksPage() {
 
   const handleSaveInitiative = useCallback((updatedInitiative: Initiative) => {
     if (!editingInitiative) return;
-    
+
     const { objectiveId, keyResultId } = editingInitiative;
 
+    // 1. Recalculate progress and status for the initiative being saved
+    const totalTasks = updatedInitiative.tasks.length;
+    const completedTasks = updatedInitiative.tasks.filter(t => t.completed).length;
+    const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+    const finalInitiative = { ...updatedInitiative };
+
+    // Update status based on progress, but don't override 'Blocked'
+    if (finalInitiative.status !== 'مسدود شده') {
+      if (initiativeProgress === 100) {
+        finalInitiative.status = 'تکمیل شده';
+      } else if (initiativeProgress > 0) {
+        finalInitiative.status = 'در حال انجام';
+      } else {
+        finalInitiative.status = 'شروع نشده';
+      }
+    }
+
+    // 2. Create the new objectives array with updated KR progress
     const newObjectives = objectives.map(obj => {
-      if (obj.id !== objectiveId) return obj;
-      return {
-        ...obj,
-        keyResults: obj.keyResults.map(kr => {
-          if (kr.id !== keyResultId) return kr;
+      if (obj.id !== objectiveId) {
+        return obj;
+      }
+
+      // This is the target objective, find the KR and update it
+      const newKeyResults = obj.keyResults.map(kr => {
+        if (kr.id !== keyResultId) {
+          return kr;
+        }
+
+        // This is the target KR. Recalculate its progress.
+        const initiativesForKr = kr.initiatives.map(init =>
+          init.id === finalInitiative.id ? finalInitiative : init
+        );
+
+        if (initiativesForKr.length === 0) {
           return {
             ...kr,
-            initiatives: kr.initiatives.map(init => 
-              init.id === updatedInitiative.id ? updatedInitiative : init
-            ),
+            progress: 0,
+            initiatives: initiativesForKr,
           };
-        }),
+        }
+
+        const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
+          const iTotalTasks = init.tasks.length;
+          const iCompletedTasks = init.tasks.filter(t => t.completed).length;
+          const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
+          return sum + iProgress;
+        }, 0);
+
+        const avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
+
+        return {
+          ...kr,
+          progress: Math.round(avgKrProgress), // round to nearest integer
+          initiatives: initiativesForKr,
+        };
+      });
+
+      return {
+        ...obj,
+        keyResults: newKeyResults,
       };
     });
+
     setObjectives(newObjectives);
     handleCloseDialog();
   }, [editingInitiative, objectives]);

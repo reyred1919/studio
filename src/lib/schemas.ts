@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, MEETING_FREQUENCIES, PERSIAN_WEEK_DAYS } from './constants';
 
@@ -34,7 +35,6 @@ export const objectiveFormSchema = z.object({
 export const checkInFormSchema = z.object({
   keyResults: z.array(z.object({
     id: z.string(),
-    progress: z.number().min(0).max(100),
     confidenceLevel: z.enum(CONFIDENCE_LEVELS),
   }))
 });

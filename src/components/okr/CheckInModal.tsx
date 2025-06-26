@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Lightbulb, Sparkles } from 'lucide-react';
 import type { Objective } from '@/types/okr';
@@ -22,6 +22,7 @@ import { CONFIDENCE_LEVELS, type ConfidenceLevel } from '@/lib/constants';
 import { checkInFormSchema, type CheckInFormData } from '@/lib/schemas';
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from '@/components/ui/progress';
 
 interface CheckInModalProps {
   isOpen: boolean;
@@ -44,7 +45,6 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
     if (objective && isOpen) {
       const initialKrs = objective.keyResults.map(kr => ({
         id: kr.id,
-        progress: kr.progress,
         confidenceLevel: kr.confidenceLevel,
       }));
       reset({ keyResults: initialKrs });
@@ -57,10 +57,10 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
   const processCheckIn = (data: CheckInFormData) => {
     const updatedKeyResults = objective.keyResults.map(originalKr => {
       const updatedKrData = data.keyResults.find(ukr => ukr.id === originalKr.id);
-      return updatedKrData ? { ...originalKr, progress: updatedKrData.progress, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
+      return updatedKrData ? { ...originalKr, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
     });
     onUpdateObjective({ ...objective, keyResults: updatedKeyResults });
-    toast({ title: "ثبت پیشرفت ذخیره شد!", description: "پیشرفت OKR شما به‌روزرسانی شد." });
+    toast({ title: "ثبت پیشرفت ذخیره شد!", description: "سطح اطمینان OKR شما به‌روزرسانی شد." });
   };
 
   const handleGetAiSuggestions = async () => {
@@ -72,7 +72,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
       ...objective,
       keyResults: objective.keyResults.map(originalKr => {
         const updatedKrData = currentFormData.keyResults.find(ukr => ukr.id === originalKr.id);
-        return updatedKrData ? { ...originalKr, progress: updatedKrData.progress, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
+        return updatedKrData ? { ...originalKr, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
       }),
     };
 
@@ -106,7 +106,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
           <DialogTitle className="font-headline">ثبت پیشرفت هدف</DialogTitle>
           <DialogDescription>
             برای: <span className="font-medium text-foreground">{objective.description}</span> <br/>
-            پیشرفت و سطح اطمینان نتایج کلیدی خود را به‌روز کنید. سپس، پیشنهادهای مبتنی بر هوش مصنوعی دریافت کنید.
+            سطح اطمینان نتایج کلیدی خود را به‌روز کنید. پیشرفت به صورت خودکار محاسبه می‌شود. سپس، پیشنهادهای مبتنی بر هوش مصنوعی دریافت کنید.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(processCheckIn)}>
@@ -120,21 +120,11 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
                     <h4 className="font-medium mb-3 text-foreground">{originalKr.description}</h4>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor={`krProgress-${index}`} className="text-sm">پیشرفت: {watch(`keyResults.${index}.progress`)}٪</Label>
-                        <Controller
-                          name={`keyResults.${index}.progress`}
-                          control={control}
-                          render={({ field: controllerField }) => (
-                            <Slider
-                              id={`krProgress-${index}`}
-                              min={0} max={100} step={1}
-                              value={[controllerField.value]}
-                              onValueChange={(value) => controllerField.onChange(value[0])}
-                              className="mt-1.5"
-                              dir="rtl" // Explicitly set dir for slider
-                            />
-                          )}
-                        />
+                        <div className="flex justify-between items-center mb-1">
+                          <Label className="text-sm">پیشرفت (خودکار)</Label>
+                          <span className="text-sm font-semibold">{originalKr.progress}%</span>
+                        </div>
+                        <Progress value={originalKr.progress} className="h-2" />
                       </div>
                       <div>
                         <Label htmlFor={`krConfidence-${index}`} className="text-sm">سطح اطمینان</Label>
@@ -182,7 +172,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
             <DialogClose asChild>
               <Button type="button" variant="outline">بستن</Button>
             </DialogClose>
-            <Button type="submit" variant="outline">ذخیره ثبت پیشرفت</Button>
+            <Button type="submit" variant="outline">ذخیره سطح اطمینان</Button>
             <Button type="button" onClick={handleGetAiSuggestions} disabled={isLoadingAiSuggestions} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               {isLoadingAiSuggestions ? (
                 <Loader2 className="ml-2 h-4 w-4 animate-spin" />

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -133,45 +134,25 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                     />
                     {form.formState.errors.keyResults?.[krIndex]?.description && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.description?.message}</p>}
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor={`keyResults.${krIndex}.progress`}>پیشرفت (٪)</Label>
-                         <Controller
-                            name={`keyResults.${krIndex}.progress`}
-                            control={form.control}
-                            render={({ field }) => (
-                              <Input 
-                                type="number"
-                                value={field.value ?? 0}
-                                onChange={e => field.onChange(parseInt(e.target.value,10) || 0)} 
-                                placeholder="۰-۱۰۰"
-                                className="mt-1"
-                                min="0" max="100"
-                              />
-                            )}
-                          />
-                        {form.formState.errors.keyResults?.[krIndex]?.progress && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.progress?.message}</p>}
-                      </div>
-                      <div>
-                        <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
-                        <Controller
-                          name={`keyResults.${krIndex}.confidenceLevel`}
-                          control={form.control}
-                          render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <SelectTrigger className="mt-1">
-                                <SelectValue placeholder="انتخاب سطح اطمینان" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {CONFIDENCE_LEVELS.map(level => (
-                                  <SelectItem key={level} value={level}>{level}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                        {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
-                      </div>
+                    <div>
+                      <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
+                      <Controller
+                        name={`keyResults.${krIndex}.confidenceLevel`}
+                        control={form.control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="انتخاب سطح اطمینان" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CONFIDENCE_LEVELS.map(level => (
+                                <SelectItem key={level} value={level}>{level}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
                     </div>
 
                     <InitiativesArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
