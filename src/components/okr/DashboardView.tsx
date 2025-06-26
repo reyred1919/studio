@@ -22,8 +22,8 @@ const initialObjectivesData: Objective[] = [
         progress: 30,
         confidenceLevel: 'متوسط',
         initiatives: [
-          { id: 'init1_1_1_sample', description: 'انتشار ۴ پست وبلاگ جدید با کیفیت بالا', status: 'در حال انجام' },
-          { id: 'init1_1_2_sample', description: 'بهینه‌سازی ۱۰ مقاله موجود برای SEO', status: 'شروع نشده' },
+          { id: 'init1_1_1_sample', description: 'انتشار ۴ پست وبلاگ جدید با کیفیت بالا', status: 'در حال انجام', tasks: [] },
+          { id: 'init1_1_2_sample', description: 'بهینه‌سازی ۱۰ مقاله موجود برای SEO', status: 'شروع نشده', tasks: [] },
         ],
       },
       {
@@ -32,8 +32,8 @@ const initialObjectivesData: Objective[] = [
         progress: 15,
         confidenceLevel: 'کم',
         initiatives: [
-          { id: 'init1_2_1_sample', description: 'طراحی مجدد جریان ورود کاربر', status: 'در حال انجام' },
-          { id: 'init1_2_2_sample', description: 'پیاده‌سازی تورهای راهنمای درون برنامه‌ای', status: 'مسدود شده' },
+          { id: 'init1_2_1_sample', description: 'طراحی مجدد جریان ورود کاربر', status: 'در حال انجام', tasks: [] },
+          { id: 'init1_2_2_sample', description: 'پیاده‌سازی تورهای راهنمای درون برنامه‌ای', status: 'مسدود شده', tasks: [] },
         ],
       },
     ],
@@ -48,8 +48,8 @@ const initialObjectivesData: Objective[] = [
         progress: 60,
         confidenceLevel: 'زیاد',
         initiatives: [
-          { id: 'init2_1_1_sample', description: 'پیاده‌سازی پایگاه دانش داخلی جدید برای کارشناسان پشتیبانی', status: 'تکمیل شده' },
-          { id: 'init2_1_2_sample', description: 'آموزش تیم پشتیبانی در مورد عیب‌یابی پیشرفته', status: 'در حال انجام' },
+          { id: 'init2_1_1_sample', description: 'پیاده‌سازی پایگاه دانش داخلی جدید برای کارشناسان پشتیبانی', status: 'تکمیل شده', tasks: [] },
+          { id: 'init2_1_2_sample', description: 'آموزش تیم پشتیبانی در مورد عیب‌یابی پیشرفته', status: 'در حال انجام', tasks: [] },
         ],
       },
     ],
@@ -63,22 +63,31 @@ export function DashboardView() {
 
   useEffect(() => {
     setIsMounted(true);
+    let loadedObjectives = initialObjectivesData;
     const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
     if (storedObjectives) {
       try {
         const parsedObjectives = JSON.parse(storedObjectives);
         if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
-           setObjectives(parsedObjectives);
-        } else {
-           setObjectives(initialObjectivesData);
+           loadedObjectives = parsedObjectives;
         }
       } catch (error) {
         console.error("Failed to parse Persian objectives from localStorage", error);
-        setObjectives(initialObjectivesData); 
       }
-    } else {
-       setObjectives(initialObjectivesData);
     }
+
+    // Data migration: ensure all initiatives have a tasks array
+    const objectivesWithTasks = loadedObjectives.map(obj => ({
+        ...obj,
+        keyResults: obj.keyResults.map(kr => ({
+            ...kr,
+            initiatives: kr.initiatives.map(init => ({
+                ...init,
+                tasks: init.tasks || [], // Add empty tasks array if it doesn't exist
+            })),
+        })),
+    }));
+    setObjectives(objectivesWithTasks);
 
     const storedCycle = localStorage.getItem('okrTrackerData_cycle_fa');
     if (storedCycle) {

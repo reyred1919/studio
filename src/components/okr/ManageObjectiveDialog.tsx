@@ -20,8 +20,6 @@ import { Trash2, PlusCircle } from 'lucide-react';
 import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel } from '@/lib/constants';
-// Removed ScrollArea import as it's no longer used for the main scroll
-// import { ScrollArea } from '@/components/ui/scroll-area'; 
 
 interface ManageObjectiveDialogProps {
   isOpen: boolean;
@@ -37,7 +35,7 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     description: DEFAULT_KEY_RESULT.description,
     progress: DEFAULT_KEY_RESULT.progress,
     confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
-    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init})) 
+    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init, tasks: []})) 
   };
   const minKrs = 2;
   let krsToUse: KeyResultFormData[] = [];
@@ -46,7 +44,7 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     krsToUse = objective.keyResults.map(kr => ({ 
       ...kr, 
       progress: kr.progress ?? 0,
-      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init})) : [] 
+      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, tasks: init.tasks || []})) : [] 
     }));
   }
   
@@ -94,7 +92,6 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>
-          {/* Removed ScrollArea, DialogContent now handles scrolling */}
           <div className="space-y-6 pt-3 pr-6 pb-3 pl-2">
             <div>
               <Label htmlFor="objectiveDescription" className="font-semibold text-base">شرح هدف</Label>
@@ -194,7 +191,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
               </Button>
             </div>
           </div>
-          <DialogFooter className="mt-8 pt-6 border-t sticky bottom-0 bg-background py-4"> {/* Made footer sticky */}
+          <DialogFooter className="mt-8 pt-6 border-t sticky bottom-0 bg-background py-4">
             <DialogClose asChild>
               <Button type="button" variant="outline">انصراف</Button>
             </DialogClose>
@@ -252,7 +249,7 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
           {errors.keyResults?.[krIndex]?.initiatives?.[initiativeIndex]?.status && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex]?.initiatives[initiativeIndex]?.status?.message}</p>}
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={() => append({ description: '', status: 'شروع نشده' })} className="mt-1 w-full">
+      <Button type="button" variant="outline" size="sm" onClick={() => append({ description: '', status: 'شروع نشده', tasks: [] })} className="mt-1 w-full">
         <PlusCircle className="w-4 h-4 ml-2" /> افزودن اقدام
       </Button>
     </div>
