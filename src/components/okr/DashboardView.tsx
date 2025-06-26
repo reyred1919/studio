@@ -70,21 +70,40 @@ const confidenceChartConfig = {
   items: {
     label: "سطح اطمینان",
   },
-  'زیاد': { label: "زیاد", color: "hsl(var(--chart-2))", icon: Smile },
-  'متوسط': { label: "متوسط", color: "hsl(var(--chart-4))", icon: Meh },
-  'کم': { label: "کم", color: "hsl(var(--chart-5))", icon: Frown },
-  'در معرض خطر': { label: "در معرض خطر", color: "hsl(var(--chart-1))", icon: AlertTriangle },
+  high: { label: "زیاد", color: "hsl(var(--chart-2))", icon: Smile },
+  medium: { label: "متوسط", color: "hsl(var(--chart-4))", icon: Meh },
+  low: { label: "کم", color: "hsl(var(--chart-5))", icon: Frown },
+  at_risk: { label: "در معرض خطر", color: "hsl(var(--chart-1))", icon: AlertTriangle },
 } satisfies ChartConfig;
+
+type ConfidenceChartKey = keyof typeof confidenceChartConfig;
+
+const confidenceLevelToKey: Record<ConfidenceLevel, ConfidenceChartKey> = {
+    'زیاد': 'high',
+    'متوسط': 'medium',
+    'کم': 'low',
+    'در معرض خطر': 'at_risk',
+};
+
 
 const initiativeChartConfig = {
     count: {
         label: "تعداد",
     },
-    'تکمیل شده': { label: 'تکمیل شده', color: "hsl(var(--chart-2))" },
-    'در حال انجام': { label: 'در حال انجام', color: "hsl(var(--primary))" },
-    'شروع نشده': { label: 'شروع نشده', color: "hsl(var(--muted))" },
-    'مسدود شده': { label: 'مسدود شده', color: "hsl(var(--chart-1))" },
+    completed: { label: 'تکمیل شده', color: "hsl(var(--chart-2))" },
+    in_progress: { label: 'در حال انجام', color: "hsl(var(--primary))" },
+    not_started: { label: 'شروع نشده', color: "hsl(var(--muted))" },
+    blocked: { label: 'مسدود شده', color: "hsl(var(--chart-1))" },
 } satisfies ChartConfig;
+
+type InitiativeChartKey = keyof typeof initiativeChartConfig;
+
+const initiativeStatusToKey: Record<InitiativeStatus, InitiativeChartKey> = {
+    'تکمیل شده': 'completed',
+    'در حال انجام': 'in_progress',
+    'شروع نشده': 'not_started',
+    'مسدود شده': 'blocked',
+};
 
 
 export function DashboardView() {
@@ -194,11 +213,21 @@ export function DashboardView() {
     }
     
     const confidenceChartData = Object.entries(krsByConfidence)
-      .map(([level, count]) => ({ level, count, fill: confidenceChartConfig[level as ConfidenceLevel]?.color || 'hsl(var(--muted))' }))
+      .map(([level, count]) => {
+          const key = confidenceLevelToKey[level as ConfidenceLevel];
+          return {
+            level: key,
+            count,
+            fill: confidenceChartConfig[key]?.color || 'hsl(var(--muted))'
+          }
+      })
       .filter(item => item.count > 0);
 
     const initiativeChartData = Object.entries(initiativesByStatus)
-        .map(([status, count]) => ({ status, count }));
+        .map(([status, count]) => {
+            const key = initiativeStatusToKey[status as InitiativeStatus];
+            return ({ status: key, count });
+        });
 
     return {
       totalObjectives: objectives.length,
@@ -318,14 +347,16 @@ export function DashboardView() {
                 <ChartContainer config={initiativeChartConfig} className="w-full h-[250px]">
                     <BarChart data={summaryStats.initiativeChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
                       <XAxis type="number" hide />
-                      <YAxis dataKey="status" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} />
+                      <YAxis dataKey="status" type="category" tickLine={false} axisLine={false} tickMargin={10} width={80} 
+                        tickFormatter={(value) => initiativeChartConfig[value as InitiativeChartKey]?.label || value}
+                      />
                       <ChartTooltip
                           cursor={false}
                           content={<ChartTooltipContent indicator="line" nameKey="status" />}
                       />
                       <Bar dataKey="count" layout="vertical" radius={5} barSize={25}>
                           {summaryStats.initiativeChartData.map((entry) => (
-                              <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeStatus]?.color || 'hsl(var(--muted))'} />
+                              <Cell key={entry.status} fill={initiativeChartConfig[entry.status as InitiativeChartKey]?.color || 'hsl(var(--muted))'} />
                           ))}
                       </Bar>
                     </BarChart>
@@ -366,5 +397,7 @@ export function DashboardView() {
     </>
   );
 }
+
+    
 
     
