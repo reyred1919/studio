@@ -1,21 +1,16 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import type { Objective, ObjectiveFormData, KeyResult, Initiative, OkrCycle, OkrCycleFormData } from '@/types/okr';
-import type { ConfidenceLevel } from '@/lib/constants';
+import React, { useState, useEffect } from 'react';
+import type { Objective, ObjectiveFormData, OkrCycle, OkrCycleFormData } from '@/types/okr';
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
 import { ManageObjectiveDialog } from '@/components/okr/ManageObjectiveDialog';
 import { ManageOkrCycleDialog } from '@/components/okr/ManageOkrCycleDialog';
 import { CheckInModal } from '@/components/okr/CheckInModal';
 import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, AlertTriangle, Smile, Plus, CheckCircle2, Activity, XOctagon, Clock, Settings2 } from 'lucide-react';
-import { differenceInCalendarDays, format } from 'date-fns';
-import { faIR } from 'date-fns/locale';
+import { Plus, Settings2 } from 'lucide-react';
 
 const generateId = () => crypto.randomUUID();
 
@@ -131,71 +126,6 @@ export default function OkrDashboardClient() {
     }
   }, [okrCycle, isMounted]);
 
-  const summaryStats = useMemo(() => {
-    let totalProgressSum = 0;
-    let totalKeyResultsCount = 0;
-    let completedKeyResults = 0;
-    let initiativesInProgress = 0;
-    let initiativesBlocked = 0;
-
-    const krsByConfidence: Record<ConfidenceLevel, number> = {
-      'زیاد': 0, 'متوسط': 0, 'کم': 0, 'در معرض خطر': 0,
-    };
-
-    objectives.forEach(obj => {
-      obj.keyResults.forEach(kr => {
-        totalProgressSum += kr.progress;
-        totalKeyResultsCount++;
-        if (kr.progress === 100) completedKeyResults++;
-        if (krsByConfidence[kr.confidenceLevel] !== undefined) krsByConfidence[kr.confidenceLevel]++;
-        kr.initiatives.forEach(init => {
-          if (init.status === 'در حال انجام') initiativesInProgress++;
-          else if (init.status === 'مسدود شده') initiativesBlocked++;
-        });
-      });
-    });
-
-    const averageProgress = totalKeyResultsCount > 0 ? totalProgressSum / totalKeyResultsCount : 0;
-
-    let remainingDays: number | null = null;
-    let cycleElapsedPercentage: number = 0;
-    if (okrCycle && okrCycle.startDate && okrCycle.endDate) {
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const cycleEndDate = new Date(okrCycle.endDate);
-      cycleEndDate.setHours(0,0,0,0);
-      const cycleStartDate = new Date(okrCycle.startDate);
-      cycleStartDate.setHours(0,0,0,0);
-
-      remainingDays = differenceInCalendarDays(cycleEndDate, today);
-      if (remainingDays < 0) remainingDays = 0;
-
-      const totalCycleDuration = differenceInCalendarDays(cycleEndDate, cycleStartDate);
-      if (totalCycleDuration > 0) {
-        const elapsedCycleDuration = differenceInCalendarDays(today, cycleStartDate);
-        cycleElapsedPercentage = Math.min(100, Math.max(0, (elapsedCycleDuration / totalCycleDuration) * 100));
-      } else if (today >= cycleEndDate) {
-        cycleElapsedPercentage = 100;
-      }
-    }
-
-    return {
-      totalObjectives: objectives.length,
-      averageProgress: parseFloat(averageProgress.toFixed(1)),
-      krsByConfidence,
-      completedKeyResults,
-      initiativesInProgress,
-      initiativesBlocked,
-      remainingDays,
-      cycleElapsedPercentage,
-      cycleDates: okrCycle ? { 
-        start: format(okrCycle.startDate, "d MMMM yyyy", { locale: faIR }), 
-        end: format(okrCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
-      } : null
-    };
-  }, [objectives, okrCycle]);
-
-
   const handleAddObjectiveClick = () => {
     setEditingObjective(null);
     setIsManageObjectiveDialogOpen(true);
@@ -250,7 +180,7 @@ export default function OkrDashboardClient() {
   return (
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-semibold font-headline text-foreground">داشبورد OKR</h2>
+        <h2 className="text-2xl font-semibold font-headline text-foreground">مدیریت اهداف OKR</h2>
         <div className="flex gap-2">
           <Button onClick={() => setIsManageCycleDialogOpen(true)} variant="outline">
             <Settings2 className="w-4 h-4 ml-2" />
@@ -262,92 +192,6 @@ export default function OkrDashboardClient() {
           </Button>
         </div>
       </div>
-
-      {isMounted && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">اهداف کل</CardTitle>
-              <Target className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">میانگین پیشرفت</CardTitle>
-              <TrendingUp className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.averageProgress}%</div>
-              {objectives.length > 0 && <Progress value={summaryStats.averageProgress} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">روزهای باقیمانده چرخه</CardTitle>
-              <Clock className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summaryStats.remainingDays !== null ? `${summaryStats.remainingDays} روز` : 'تنظیم نشده'}
-              </div>
-              {summaryStats.remainingDays !== null && okrCycle && (
-                <>
-                  <Progress value={summaryStats.cycleElapsedPercentage} className="h-2 mt-2 rounded-full" indicatorClassName="rounded-full" />
-                  {summaryStats.cycleDates && <p className="text-xs text-muted-foreground mt-1 text-center">{summaryStats.cycleDates.start} - {summaryStats.cycleDates.end}</p>}
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">نتایج کلیدی با اطمینان زیاد</CardTitle>
-              <Smile className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.krsByConfidence['زیاد']}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">نتایج کلیدی در معرض خطر</CardTitle>
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.krsByConfidence['در معرض خطر']}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">نتایج کلیدی تکمیل‌شده</CardTitle>
-              <CheckCircle2 className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.completedKeyResults}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">اقدامات در حال انجام</CardTitle>
-              <Activity className="h-5 w-5 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.initiativesInProgress}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">اقدامات مسدود شده</CardTitle>
-              <XOctagon className="h-5 w-5 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summaryStats.initiativesBlocked}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {objectives.length === 0 && isMounted ? (
         <EmptyState onAddObjective={handleAddObjectiveClick} />

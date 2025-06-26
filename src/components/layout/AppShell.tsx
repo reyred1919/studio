@@ -24,7 +24,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   const menuItems = [
     { href: '/', label: 'داشبورد', icon: LayoutDashboard },
-    { href: '/', label: 'مدیریت اهداف', icon: Target },
+    { href: '/objectives', label: 'مدیریت اهداف', icon: Target },
     { href: '/tasks', label: 'مدیریت وظیفه‌ها', icon: ListChecks },
     { href: '/calendar', label: 'تقویم', icon: CalendarDays },
     { href: '/timeline', label: 'زمان‌نمای چرخه OKR', icon: History },

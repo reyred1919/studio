@@ -1,10 +1,10 @@
-import OkrDashboardClient from '@/components/OkrDashboardClient';
+import { DashboardView } from '@/components/okr/DashboardView';
 import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function OkrTrackerPage() {
   return (
     <PageContainer>
-      <OkrDashboardClient />
+      <DashboardView />
     </PageContainer>
   );
 }
