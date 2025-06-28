@@ -14,50 +14,7 @@ import { Plus, Settings2 } from 'lucide-react';
 
 const generateId = () => crypto.randomUUID();
 
-const initialObjectivesData: Objective[] = [
-  {
-    id: 'obj1_sample',
-    description: 'بهبود قابلیت کشف محصول و پذیرش کاربر برای فصل سوم',
-    keyResults: [
-      {
-        id: 'kr1_1_sample',
-        description: 'افزایش ۲۵٪ ثبت‌نام‌های ارگانیک از طریق بازاریابی محتوا',
-        progress: 30,
-        confidenceLevel: 'متوسط',
-        initiatives: [
-          { id: 'init1_1_1_sample', description: 'انتشار ۴ پست وبلاگ جدید با کیفیت بالا', status: 'در حال انجام', tasks: [] },
-          { id: 'init1_1_2_sample', description: 'بهینه‌سازی ۱۰ مقاله موجود برای SEO', status: 'شروع نشده', tasks: [] },
-        ],
-      },
-      {
-        id: 'kr1_2_sample',
-        description: 'بهبود نرخ فعال‌سازی کاربران جدید از ۴۰٪ به ۶۰٪',
-        progress: 15,
-        confidenceLevel: 'کم',
-        initiatives: [
-          { id: 'init1_2_1_sample', description: 'طراحی مجدد جریان ورود کاربر', status: 'در حال انجام', tasks: [] },
-          { id: 'init1_2_2_sample', description: 'پیاده‌سازی تورهای راهنمای درون برنامه‌ای', status: 'مسدود شده', tasks: [] },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'obj2_sample',
-    description: 'تقویت بهره‌وری عملیاتی و کاهش هزینه‌های سربار تا فصل چهارم',
-    keyResults: [
-      {
-        id: 'kr2_1_sample',
-        description: 'کاهش ۱۵٪ میانگین زمان حل تیکت (از ۴ ساعت به ۳.۴ ساعت)',
-        progress: 60,
-        confidenceLevel: 'زیاد',
-        initiatives: [
-          { id: 'init2_1_1_sample', description: 'پیاده‌سازی پایگاه دانش داخلی جدید برای کارشناسان پشتیبانی', status: 'تکمیل شده', tasks: [] },
-          { id: 'init2_1_2_sample', description: 'آموزش تیم پشتیبانی در مورد عیب‌یابی پیشرفته', status: 'در حال انجام', tasks: [] },
-        ],
-      },
-    ],
-  }
-];
+const initialObjectivesData: Objective[] = [];
 
 
 export default function OkrDashboardClient() {
@@ -74,7 +31,7 @@ export default function OkrDashboardClient() {
 
   useEffect(() => {
     setIsMounted(true);
-    let loadedObjectives = initialObjectivesData;
+    let loadedObjectives: Objective[] = [];
     const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
     if (storedObjectives) {
       try {

@@ -27,34 +27,7 @@ interface InitiativeViewModel {
   shortCode: string;
 }
 
-const initialObjectivesData: Objective[] = [
-  {
-    id: 'obj1_sample',
-    description: 'بهبود قابلیت کشف محصول و پذیرش کاربر برای فصل سوم',
-    keyResults: [
-      {
-        id: 'kr1_1_sample',
-        description: 'افزایش ۲۵٪ ثبت‌نام‌های ارگانیک از طریق بازاریابی محتوا',
-        progress: 30,
-        confidenceLevel: 'متوسط',
-        initiatives: [
-          { id: 'init1_1_1_sample', description: 'انتشار ۴ پست وبلاگ جدید با کیفیت بالا', status: 'در حال انجام', tasks: [{id: 't1', description: 'task 1', completed: true}] },
-          { id: 'init1_1_2_sample', description: 'بهینه‌سازی ۱۰ مقاله موجود برای SEO', status: 'شروع نشده', tasks: [] },
-        ],
-      },
-      {
-        id: 'kr1_2_sample',
-        description: 'بهبود نرخ فعال‌سازی کاربران جدید از ۴۰٪ به ۶۰٪',
-        progress: 15,
-        confidenceLevel: 'کم',
-        initiatives: [
-          { id: 'init1_2_1_sample', description: 'طراحی مجدد جریان ورود کاربر', status: 'در حال انجام', tasks: [] },
-          { id: 'init1_2_2_sample', description: 'پیاده‌سازی تورهای راهنمای درون برنامه‌ای', status: 'مسدود شده', tasks: [] },
-        ],
-      },
-    ],
-  },
-];
+const initialObjectivesData: Objective[] = [];
 
 export default function TasksPage() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -64,7 +37,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    let loadedObjectives = initialObjectivesData;
+    let loadedObjectives: Objective[] = [];
     const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
     if (storedObjectives) {
       try {
