@@ -157,6 +157,7 @@ export function DashboardView() {
 
     return {
       totalObjectives: objectives.length,
+      totalKeyResults: totalKeyResultsCount,
       averageProgress: parseFloat(averageProgress.toFixed(1)),
       remainingDays,
       cycleElapsedPercentage: Math.round(cycleElapsedPercentage),
@@ -197,12 +198,21 @@ export function DashboardView() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">اهداف فعال</CardTitle>
+            <CardTitle className="text-sm font-medium">خلاصه اهداف و نتایج</CardTitle>
             <Target className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
-            <p className="text-xs text-muted-foreground">اهداف تعریف شده در این چرخه</p>
+             <div className="flex items-end gap-4 pt-2">
+                <div>
+                    <div className="text-2xl font-bold">{summaryStats.totalObjectives}</div>
+                    <p className="text-xs text-muted-foreground">اهداف</p>
+                </div>
+                <div className="h-8 w-px bg-border self-center"></div>
+                <div>
+                    <div className="text-2xl font-bold">{summaryStats.totalKeyResults}</div>
+                    <p className="text-xs text-muted-foreground">نتایج کلیدی</p>
+                </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
