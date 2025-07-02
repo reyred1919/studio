@@ -8,6 +8,7 @@ import Link from 'next/link';
 import {
   addMonths,
   addWeeks,
+  differenceInDays,
   eachWeekOfInterval,
   endOfDay,
   format,
@@ -19,6 +20,7 @@ import {
   parseISO,
   setDay,
   startOfDay,
+  startOfMonth,
   startOfWeek as dateFnsStartOfWeek,
   endOfWeek as dateFnsEndOfWeek,
 } from 'date-fns';
@@ -33,9 +35,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CalendarDays, CalendarCheck, CalendarClock, CalendarX, ListFilter, Save } from 'lucide-react';
+import { CalendarDays, ListFilter, Save, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
 
 import type { OkrCycle, CalendarSettings, ScheduledMeeting, CalendarSettingsFormData } from '@/types/okr';
 import { calendarSettingsSchema } from '@/lib/schemas';
@@ -54,9 +59,7 @@ export default function CalendarPage() {
     resolver: zodResolver(calendarSettingsSchema),
     defaultValues: {
       frequency: 'weekly',
-      checkInDayOfWeek: 6, // Saturday - Zod schema transforms output to number, so default can be number.
-                           // RHF field value will be number initially, then string after user interaction if onChange passes string.
-      // evaluationDate will be undefined by default
+      checkInDayOfWeek: 6, 
     }
   });
 
@@ -83,16 +86,13 @@ export default function CalendarPage() {
     const storedSettings = localStorage.getItem(CALENDAR_SETTINGS_STORAGE_KEY);
     if (storedSettings) {
       try {
-        // CalendarSettings (actual settings type) has checkInDayOfWeek as number.
         const parsedSettings: CalendarSettings = JSON.parse(storedSettings);
         if (parsedSettings.evaluationDate) {
           parsedSettings.evaluationDate = parseISO(parsedSettings.evaluationDate as unknown as string);
         }
-        // Reset form. Since CalendarSettingsFormData (type for useForm generic) has checkInDayOfWeek as number (due to Zod transform's output),
-        // we pass the number here. The Controller logic will handle string conversion for the Select component.
         reset({
           frequency: parsedSettings.frequency,
-          checkInDayOfWeek: parsedSettings.checkInDayOfWeek, // This is a number
+          checkInDayOfWeek: parsedSettings.checkInDayOfWeek,
           evaluationDate: parsedSettings.evaluationDate,
         });
         setCalendarSettings(parsedSettings);
@@ -116,9 +116,6 @@ export default function CalendarPage() {
     if (!isMounted) return;
 
     const currentOkrCycleEndDate = okrCycle?.endDate;
-    // watchedCheckInDay comes from RHF. If it was set by onChange(stringValue), it's a string.
-    // If it's the initial default value or from reset(), it's a number.
-    // We need a number for setDay.
     const formCheckInDayOfWeek = typeof watchedCheckInDay === 'string' ? parseInt(watchedCheckInDay, 10) : watchedCheckInDay;
 
     if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && !isNaN(formCheckInDayOfWeek) && watchedEvaluationDate === undefined) {
@@ -137,7 +134,6 @@ export default function CalendarPage() {
 
 
   const handleSaveSettings = (data: CalendarSettingsFormData) => {
-    // data.checkInDayOfWeek is already a number here due to Zod transform in calendarSettingsSchema
     const newSettings: CalendarSettings = {
       frequency: data.frequency,
       checkInDayOfWeek: data.checkInDayOfWeek,
@@ -155,7 +151,7 @@ export default function CalendarPage() {
 
     const meetings: ScheduledMeeting[] = [];
     const { startDate, endDate } = okrCycle;
-    const { frequency, checkInDayOfWeek, evaluationDate } = calendarSettings; // checkInDayOfWeek is number here
+    const { frequency, checkInDayOfWeek, evaluationDate } = calendarSettings;
 
     let currentDate = startOfDay(startDate);
     let meetingIdCounter = 0;
@@ -173,8 +169,8 @@ export default function CalendarPage() {
           id: `check-in-${meetingIdCounter++}`,
           date: currentDate,
           type: 'check-in',
-          title: `جلسه Check-in (${MEETING_FREQUENCIES.find(f => f.value === frequency)?.label}, ${PERSIAN_WEEK_DAYS.find(d => d.value === checkInDayOfWeek)?.label})`,
-          status: isPast(currentDate) ? (isSameDay(currentDate, new Date()) ? 'today' : 'past') : (isSameDay(currentDate, new Date()) ? 'today' : 'future'),
+          title: `جلسه Check-in`,
+          status: isPast(currentDate) ? 'past' : (isToday(currentDate) ? 'today' : 'future'),
         });
 
         let nextMeetingDateCandidate: Date | null = null;
@@ -183,25 +179,7 @@ export default function CalendarPage() {
         } else if (frequency === 'bi-weekly') {
           nextMeetingDateCandidate = addWeeks(currentDate, 2);
         } else if (frequency === 'monthly') {
-          const targetMonthDate = addMonths(currentDate, 1);
-          let potentialNextDate = setDay(targetMonthDate, checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-
-          if (isBefore(potentialNextDate, startOfDay(targetMonthDate))) {
-             let attempts = 0;
-             while(isBefore(potentialNextDate, startOfDay(targetMonthDate)) && attempts < 5){
-                 potentialNextDate = addWeeks(potentialNextDate, 1);
-                 attempts++;
-             }
-          }
-           if (isBefore(potentialNextDate, addWeeks(currentDate, 3))) {
-              potentialNextDate = setDay(addMonths(currentDate, 1), checkInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-              while(isBefore(potentialNextDate, addMonths(currentDate,1)) && !isSameDay(potentialNextDate, addMonths(currentDate,1)) ){
-                potentialNextDate = addWeeks(potentialNextDate,1);
-                if (isAfter(potentialNextDate,endDate) && !isSameDay(potentialNextDate,endDate)) break; 
-              }
-           }
-          nextMeetingDateCandidate = potentialNextDate;
-
+          nextMeetingDateCandidate = addMonths(currentDate, 1);
         } else {
           break;
         }
@@ -219,25 +197,24 @@ export default function CalendarPage() {
         date: startOfDay(evaluationDate),
         type: 'evaluation',
         title: 'جلسه ارزیابی نهایی OKR',
-        status: isPast(evaluationDate) ? (isSameDay(evaluationDate, new Date()) ? 'today' : 'past') : (isSameDay(evaluationDate, new Date()) ? 'today' : 'future'),
+        status: isPast(evaluationDate) ? 'past' : (isToday(evaluationDate) ? 'today' : 'future'),
       });
     }
 
     return meetings.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [okrCycle, calendarSettings]);
 
-  const getMeetingItemClasses = (status: ScheduledMeeting['status']) => {
-    let base = "p-4 rounded-lg shadow-sm flex items-center gap-3 ";
-    if (status === 'past') return base + "bg-muted/60 border-muted/80 opacity-70";
-    if (status === 'today') return base + "bg-primary/10 border-primary/40 ring-2 ring-primary";
-    return base + "bg-card border";
-  };
+  const monthsInCycle = useMemo(() => {
+    if (!okrCycle) return [];
+    const months = [];
+    let currentMonth = startOfMonth(okrCycle.startDate);
+    while (isBefore(currentMonth, okrCycle.endDate)) {
+        months.push(currentMonth);
+        currentMonth = addMonths(currentMonth, 1);
+    }
+    return months;
+  }, [okrCycle]);
 
-  const getMeetingIcon = (meeting: ScheduledMeeting) => {
-    if (meeting.status === 'past') return <CalendarX className="w-5 h-5 text-muted-foreground" />;
-    if (meeting.status === 'today') return <CalendarClock className="w-5 h-5 text-primary animate-pulse" />;
-    return <CalendarCheck className="w-5 h-5 text-green-600" />;
-  };
 
   if (!isMounted) {
     return (
@@ -262,7 +239,6 @@ export default function CalendarPage() {
               className="mb-8 rounded-lg shadow-xl"
               data-ai-hint="تقویم هشدار"
           />
-          <CalendarDays className="w-16 h-16 text-primary mb-6" />
           <h1 className="text-3xl font-bold font-headline text-foreground mb-4">تقویم جلسات OKR</h1>
           <Alert variant="destructive" className="max-w-md text-center">
             <AlertTitle className="font-semibold">چرخه OKR تنظیم نشده است</AlertTitle>
@@ -274,6 +250,8 @@ export default function CalendarPage() {
       </PageContainer>
     );
   }
+
+  const totalDays = differenceInDays(okrCycle.endDate, okrCycle.startDate) || 1;
 
   return (
     <PageContainer>
@@ -316,10 +294,10 @@ export default function CalendarPage() {
                 <Controller
                   name="checkInDayOfWeek"
                   control={control}
-                  render={({ field }) => ( // field.value from RHF can be number (initial) or string (after onChange)
+                  render={({ field }) => (
                     <Select
-                        onValueChange={(value) => field.onChange(value)} // Pass string value from SelectItem to RHF
-                        value={field.value !== undefined ? String(field.value) : undefined} // Ensure Select gets string or undefined
+                        onValueChange={(value) => field.onChange(value)}
+                        value={field.value !== undefined ? String(field.value) : undefined}
                     >
                       <SelectTrigger id="checkInDayOfWeek" className="mt-1">
                         <SelectValue placeholder="انتخاب روز هفته" />
@@ -379,24 +357,60 @@ export default function CalendarPage() {
               </CardDescription>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-8">
             {scheduledMeetings.length > 0 ? (
-              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                {scheduledMeetings.map(meeting => (
-                  <div key={meeting.id} className={getMeetingItemClasses(meeting.status)}>
-                    {getMeetingIcon(meeting)}
-                    <div className="flex-grow">
-                      <p className={`font-medium ${meeting.status === 'today' ? 'text-primary' : 'text-foreground'}`}>{meeting.title}</p>
-                      <p className={`text-sm ${meeting.status === 'today' ? 'text-primary/80' : 'text-muted-foreground'}`}>
-                        {format(meeting.date, "eeee، d MMMM yyyy", { locale: faIR })}
-                      </p>
+                <TooltipProvider delayDuration={100}>
+                    <div className="relative h-40 w-full" aria-label="تایم لاین جلسات">
+                        <div className="absolute right-0 w-full top-1/2 h-0.5 bg-border -translate-y-1/2" />
+                        
+                        {/* Month Markers */}
+                        {monthsInCycle.map((month, index) => {
+                            const daysFromStart = differenceInDays(month, okrCycle.startDate);
+                            const positionPercent = (daysFromStart / totalDays) * 100;
+                            return (
+                                <div key={`month-${index}`}
+                                    className="absolute top-1/2 flex flex-col items-center transform translate-x-1/2"
+                                    style={{ right: `${positionPercent}%` }}>
+                                    <div className="h-2 w-0.5 bg-muted-foreground" />
+                                    <span className="mt-1 text-xs text-muted-foreground">{format(month, "MMM", { locale: faIR })}</span>
+                                </div>
+                            );
+                        })}
+
+                        {/* Meeting Pins */}
+                        {scheduledMeetings.map(meeting => {
+                            const daysFromStart = differenceInDays(meeting.date, okrCycle.startDate);
+                            const positionPercent = Math.max(0, Math.min(100, (daysFromStart / totalDays) * 100));
+                            const isPastMeeting = meeting.status === 'past';
+                            
+                            const pinClasses = cn(
+                                "w-7 h-7 transition-transform duration-200 hover:scale-125", {
+                                "text-muted-foreground": isPastMeeting,
+                                "text-green-600 -rotate-180": meeting.status === 'future',
+                                "text-primary -rotate-180 animate-pulse": meeting.status === 'today',
+                            });
+
+                            const wrapperClasses = cn("absolute transform translate-x-1/2", {
+                                "top-[calc(50%+8px)]": isPastMeeting,
+                                "bottom-[calc(50%+8px)]": !isPastMeeting,
+                            });
+                           
+                            return (
+                                <Tooltip key={meeting.id}>
+                                    <TooltipTrigger asChild>
+                                        <div style={{ right: `${positionPercent}%` }} className={wrapperClasses}>
+                                            <MapPin className={pinClasses} />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="font-semibold">{meeting.title}</p>
+                                        <p className="text-sm text-muted-foreground">{format(meeting.date, "eeee، d MMMM yyyy", { locale: faIR })}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )
+                        })}
                     </div>
-                    {meeting.status === 'today' && <Badge variant="default" className="bg-primary text-primary-foreground">امروز</Badge>}
-                    {meeting.status === 'future' && <Badge variant="outline" className="border-foreground/50 text-foreground/80">آینده</Badge>}
-                    {meeting.status === 'past' && <Badge variant="secondary" className="bg-muted text-muted-foreground">گذشته</Badge>}
-                  </div>
-                ))}
-              </div>
+                </TooltipProvider>
             ) : (
               <div className="text-center py-10">
                 <Image
@@ -407,8 +421,8 @@ export default function CalendarPage() {
                     className="mb-6 rounded-md shadow-md mx-auto"
                     data-ai-hint="تقویم خالی یادداشت"
                 />
-                <p className="text-muted-foreground">هیچ جلسه‌ای برنامه‌ریزی نشده است یا تنظیمات تقویم کامل نیست.</p>
-                <p className="text-sm text-muted-foreground mt-1">لطفاً تنظیمات جلسات را در پنل کنار مشخص کنید.</p>
+                <p className="text-muted-foreground">هیچ جلسه‌ای برنامه‌ریزی نشده است.</p>
+                <p className="text-sm text-muted-foreground mt-1">لطفاً تنظیمات جلسات را در پنل کنار مشخص کنید تا تایم‌لاین ساخته شود.</p>
               </div>
             )}
           </CardContent>
@@ -421,3 +435,5 @@ export default function CalendarPage() {
 function isPast(date: Date): boolean {
   return isBefore(endOfDay(date), startOfDay(new Date()));
 }
+
+    
