@@ -267,7 +267,7 @@ export default function CalendarPage() {
           <Alert variant="destructive" className="max-w-md text-center">
             <AlertTitle className="font-semibold">چرخه OKR تنظیم نشده است</AlertTitle>
             <AlertDescription>
-              برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/" className="font-medium text-primary hover:underline">داشبورد</Link> تنظیم کنید.
+              برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/dashboard" className="font-medium text-primary hover:underline">داشبورد</Link> تنظیم کنید.
             </AlertDescription>
           </Alert>
         </div>

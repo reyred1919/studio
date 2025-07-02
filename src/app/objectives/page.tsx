@@ -1,10 +1,3 @@
-import OkrDashboardClient from '@/components/OkrDashboardClient';
-import { PageContainer } from '@/components/layout/PageContainer';
-
-export default function ObjectivesPage() {
-  return (
-    <PageContainer>
-      <OkrDashboardClient />
-    </PageContainer>
-  );
-}
+// This file is intentionally left blank to resolve a route conflict.
+// The active page is located at /src/app/(app)/objectives/page.tsx
+export {};

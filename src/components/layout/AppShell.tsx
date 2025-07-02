@@ -23,7 +23,7 @@ export default function AppShell({ children }: AppShellProps) {
   const { state } = useSidebar();
 
   const menuItems = [
-    { href: '/', label: 'داشبورد', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard },
     { href: '/objectives', label: 'مدیریت اهداف', icon: Target },
     { href: '/tasks', label: 'مدیریت وظیفه‌ها', icon: ListChecks },
     { href: '/calendar', label: 'تقویم', icon: CalendarDays },
