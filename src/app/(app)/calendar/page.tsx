@@ -8,7 +8,6 @@ import Link from 'next/link';
 import {
   addMonths,
   addWeeks,
-  differenceInDays,
   eachWeekOfInterval,
   endOfDay,
   format,
@@ -35,10 +34,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CalendarDays, ListFilter, Save, MapPin } from 'lucide-react';
+import { CalendarDays, ListFilter, Save, CheckCircle, Star } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 
@@ -204,18 +202,6 @@ export default function CalendarPage() {
     return meetings.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [okrCycle, calendarSettings]);
 
-  const monthsInCycle = useMemo(() => {
-    if (!okrCycle) return [];
-    const months = [];
-    let currentMonth = startOfMonth(okrCycle.startDate);
-    while (isBefore(currentMonth, okrCycle.endDate)) {
-        months.push(currentMonth);
-        currentMonth = addMonths(currentMonth, 1);
-    }
-    return months;
-  }, [okrCycle]);
-
-
   if (!isMounted) {
     return (
       <PageContainer>
@@ -250,8 +236,6 @@ export default function CalendarPage() {
       </PageContainer>
     );
   }
-
-  const totalDays = differenceInDays(okrCycle.endDate, okrCycle.startDate) || 1;
 
   return (
     <PageContainer>
@@ -357,60 +341,50 @@ export default function CalendarPage() {
               </CardDescription>
             )}
           </CardHeader>
-          <CardContent className="pt-8">
+          <CardContent className="pt-4">
             {scheduledMeetings.length > 0 ? (
-                <TooltipProvider delayDuration={100}>
-                    <div className="relative h-40 w-full" aria-label="تایم لاین جلسات">
-                        <div className="absolute right-0 w-full top-1/2 h-0.5 bg-border -translate-y-1/2" />
-                        
-                        {/* Month Markers */}
-                        {monthsInCycle.map((month, index) => {
-                            const daysFromStart = differenceInDays(month, okrCycle.startDate);
-                            const positionPercent = (daysFromStart / totalDays) * 100;
-                            return (
-                                <div key={`month-${index}`}
-                                    className="absolute top-1/2 flex flex-col items-center transform translate-x-1/2"
-                                    style={{ right: `${positionPercent}%` }}>
-                                    <div className="h-2 w-0.5 bg-muted-foreground" />
-                                    <span className="mt-1 text-xs text-muted-foreground">{format(month, "MMM", { locale: faIR })}</span>
-                                </div>
-                            );
-                        })}
-
-                        {/* Meeting Pins */}
-                        {scheduledMeetings.map(meeting => {
-                            const daysFromStart = differenceInDays(meeting.date, okrCycle.startDate);
-                            const positionPercent = Math.max(0, Math.min(100, (daysFromStart / totalDays) * 100));
-                            const isPastMeeting = meeting.status === 'past';
-                            
-                            const pinClasses = cn(
-                                "w-7 h-7 transition-transform duration-200 hover:scale-125", {
-                                "text-muted-foreground": isPastMeeting,
-                                "text-green-600 -rotate-180": meeting.status === 'future',
-                                "text-primary -rotate-180 animate-pulse": meeting.status === 'today',
-                            });
-
-                            const wrapperClasses = cn("absolute transform translate-x-1/2", {
-                                "top-[calc(50%+8px)]": isPastMeeting,
-                                "bottom-[calc(50%+8px)]": !isPastMeeting,
-                            });
-                           
-                            return (
-                                <Tooltip key={meeting.id}>
-                                    <TooltipTrigger asChild>
-                                        <div style={{ right: `${positionPercent}%` }} className={wrapperClasses}>
-                                            <MapPin className={pinClasses} />
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="font-semibold">{meeting.title}</p>
-                                        <p className="text-sm text-muted-foreground">{format(meeting.date, "eeee، d MMMM yyyy", { locale: faIR })}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            )
-                        })}
+               <div className="space-y-4">
+                {scheduledMeetings.map(meeting => {
+                  const isPastMeeting = meeting.status === 'past';
+                  const isTodayMeeting = meeting.status === 'today';
+                  const Icon = meeting.type === 'check-in' ? CheckCircle : Star;
+                  
+                  return (
+                    <div
+                      key={meeting.id}
+                      className={cn(
+                        "flex items-center gap-4 rounded-lg border p-4 transition-colors",
+                        isPastMeeting ? "bg-muted/50 text-muted-foreground" : "bg-card",
+                        isTodayMeeting && "border-primary bg-primary/10"
+                      )}
+                    >
+                      <Icon className={cn(
+                        "h-8 w-8 flex-shrink-0",
+                        isPastMeeting ? "text-muted-foreground" : (meeting.type === 'check-in' ? "text-green-500" : "text-yellow-500"),
+                        isTodayMeeting && "text-primary"
+                      )} />
+                      <div className="flex-grow">
+                        <p className={cn("font-semibold", isPastMeeting ? "text-muted-foreground" : "text-foreground")}>
+                          {meeting.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(meeting.date, "eeee، d MMMM yyyy", { locale: faIR })}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={isPastMeeting ? "outline" : "default"}
+                        className={cn(
+                          isPastMeeting && "border-gray-400",
+                          isTodayMeeting && "bg-primary text-primary-foreground",
+                          !isPastMeeting && !isTodayMeeting && "bg-secondary text-secondary-foreground"
+                        )}
+                      >
+                        {meeting.status === 'past' ? 'برگزار شده' : (meeting.status === 'today' ? 'امروز' : 'آینده')}
+                      </Badge>
                     </div>
-                </TooltipProvider>
+                  )
+                })}
+              </div>
             ) : (
               <div className="text-center py-10">
                 <Image
@@ -422,7 +396,7 @@ export default function CalendarPage() {
                     data-ai-hint="تقویم خالی یادداشت"
                 />
                 <p className="text-muted-foreground">هیچ جلسه‌ای برنامه‌ریزی نشده است.</p>
-                <p className="text-sm text-muted-foreground mt-1">لطفاً تنظیمات جلسات را در پنل کنار مشخص کنید تا تایم‌لاین ساخته شود.</p>
+                <p className="text-sm text-muted-foreground mt-1">لطفاً تنظیمات جلسات را در پنل کنار مشخص کنید تا لیست جلسات ساخته شود.</p>
               </div>
             )}
           </CardContent>
