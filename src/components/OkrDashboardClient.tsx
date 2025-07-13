@@ -2,20 +2,27 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import type { Objective, ObjectiveFormData, OkrCycle, OkrCycleFormData } from '@/types/okr';
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
-import { ManageObjectiveDialog } from '@/components/okr/ManageObjectiveDialog';
-import { ManageOkrCycleDialog } from '@/components/okr/ManageOkrCycleDialog';
-import { CheckInModal } from '@/components/okr/CheckInModal';
 import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Plus, Settings2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const ManageObjectiveDialog = dynamic(() => import('@/components/okr/ManageObjectiveDialog').then(mod => mod.ManageObjectiveDialog), {
+  loading: () => <p>در حال بارگذاری...</p>,
+});
+const CheckInModal = dynamic(() => import('@/components/okr/CheckInModal').then(mod => mod.CheckInModal), {
+  loading: () => <p>در حال بارگذاری...</p>,
+});
+const ManageOkrCycleDialog = dynamic(() => import('@/components/okr/ManageOkrCycleDialog').then(mod => mod.ManageOkrCycleDialog), {
+  loading: () => <p>در حال بارگذاری...</p>,
+});
+
 
 const generateId = () => crypto.randomUUID();
-
-const initialObjectivesData: Objective[] = [];
-
 
 export default function OkrDashboardClient() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -30,7 +37,6 @@ export default function OkrDashboardClient() {
 
 
   useEffect(() => {
-    setIsMounted(true);
     let loadedObjectives: Objective[] = [];
     const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
     if (storedObjectives) {
@@ -44,14 +50,13 @@ export default function OkrDashboardClient() {
       }
     }
     
-    // Data migration: ensure all initiatives have a tasks array
     const objectivesWithTasks = loadedObjectives.map(obj => ({
         ...obj,
         keyResults: obj.keyResults.map(kr => ({
             ...kr,
             initiatives: kr.initiatives.map(init => ({
                 ...init,
-                tasks: init.tasks || [], // Add empty tasks array if it doesn't exist
+                tasks: init.tasks || [], 
             })),
         })),
     }));
@@ -72,24 +77,29 @@ export default function OkrDashboardClient() {
         console.error("Failed to parse OKR cycle from localStorage", error);
       }
     }
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (isMounted && objectives.length > 0) { 
+    if (isMounted) { 
+      if (objectives.length > 0) {
         localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
-    } else if (isMounted && objectives.length === 0) {
+      } else {
         localStorage.removeItem('okrTrackerData_objectives_fa');
+      }
     }
   }, [objectives, isMounted]);
 
   useEffect(() => {
-    if (isMounted && okrCycle) {
-      localStorage.setItem('okrTrackerData_cycle_fa', JSON.stringify({
-        startDate: okrCycle.startDate.toISOString(),
-        endDate: okrCycle.endDate.toISOString(),
-      }));
-    } else if (isMounted && !okrCycle) {
-      localStorage.removeItem('okrTrackerData_cycle_fa');
+    if (isMounted) {
+      if (okrCycle) {
+        localStorage.setItem('okrTrackerData_cycle_fa', JSON.stringify({
+          startDate: okrCycle.startDate.toISOString(),
+          endDate: okrCycle.endDate.toISOString(),
+        }));
+      } else {
+        localStorage.removeItem('okrTrackerData_cycle_fa');
+      }
     }
   }, [okrCycle, isMounted]);
 
@@ -145,6 +155,24 @@ export default function OkrDashboardClient() {
     setOkrCycle({ startDate: data.startDate, endDate: data.endDate });
   };
 
+  if (!isMounted) {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+            <Skeleton className="h-8 w-48" />
+            <div className="flex gap-2">
+                <Skeleton className="h-10 w-36" />
+                <Skeleton className="h-10 w-36" />
+            </div>
+        </div>
+        <div className="space-y-8">
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
@@ -161,7 +189,7 @@ export default function OkrDashboardClient() {
         </div>
       </div>
 
-      {objectives.length === 0 && isMounted ? (
+      {objectives.length === 0 ? (
         <EmptyState onAddObjective={handleAddObjectiveClick} />
       ) : (
         <div className="space-y-8">
@@ -176,14 +204,14 @@ export default function OkrDashboardClient() {
         </div>
       )}
       
-      <ManageObjectiveDialog
+      {isManageObjectiveDialogOpen && <ManageObjectiveDialog
         isOpen={isManageObjectiveDialogOpen}
         onClose={() => { setIsManageObjectiveDialogOpen(false); setEditingObjective(null); }}
         onSubmit={handleManageObjectiveSubmit}
         initialData={editingObjective}
-      />
+      />}
 
-      {currentObjectiveForCheckIn && (
+      {isCheckInModalOpen && currentObjectiveForCheckIn && (
         <CheckInModal
           isOpen={isCheckInModalOpen}
           onClose={() => setIsCheckInModalOpen(false)}
@@ -192,12 +220,12 @@ export default function OkrDashboardClient() {
         />
       )}
 
-      <ManageOkrCycleDialog
+      {isManageCycleDialogOpen && <ManageOkrCycleDialog
         isOpen={isManageCycleDialogOpen}
         onClose={() => setIsManageCycleDialogOpen(false)}
         onSubmit={handleManageCycleSubmit}
         initialData={okrCycle}
-      />
+      />}
     </>
   );
 }

@@ -1,5 +1,5 @@
-import OkrDashboardClient from '@/components/OkrDashboardClient';
 import { PageContainer } from '@/components/layout/PageContainer';
+import OkrDashboardClient from '@/components/OkrDashboardClient';
 
 export default function ObjectivesPage() {
   return (
