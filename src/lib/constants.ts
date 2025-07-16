@@ -26,6 +26,6 @@ export const PERSIAN_WEEK_DAYS = [
   { label: 'سه‌شنبه', value: 2 },  // Corresponds to getDay() === 2 for Tuesday
   { label: 'چهارشنبه', value: 3 }, // Corresponds to getDay() === 3 for Wednesday
   { label: 'پنج‌شنبه', value: 4 }, // Corresponds to getDay() === 4 for Thursday
-  // جمعه معمولاً روز جلسه نیست
+  // Friday is usually not a meeting day
 ] as const;
 export type PersianWeekDayValue = typeof PERSIAN_WEEK_DAYS[number]['value'];

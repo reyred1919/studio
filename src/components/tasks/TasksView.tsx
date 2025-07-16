@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ListChecks, GanttChartSquare, Settings, AlertCircle, Loader2 } from 'lucide-react';
 import type { InitiativeStatus } from '@/lib/constants';
+import { INITIATIVE_STATUSES } from '@/lib/constants';
 
 const ManageInitiativeDialog = dynamic(() => import('@/components/tasks/ManageInitiativeDialog').then(mod => mod.ManageInitiativeDialog), {
   loading: () => <p>در حال بارگذاری...</p>,
@@ -25,7 +27,9 @@ const statusStyles: Record<InitiativeStatus, string> = {
 interface InitiativeViewModel {
   initiative: Initiative;
   objectiveId: string;
+  objectiveDescription: string;
   keyResultId: string;
+  keyResultDescription: string;
   shortCode: string;
 }
 
@@ -41,7 +45,7 @@ export function TasksView() {
     if (storedObjectives) {
       try {
         const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
+        if (Array.isArray(parsedObjectives)) {
           loadedObjectives = parsedObjectives;
         }
       } catch (error) {
@@ -78,7 +82,9 @@ export function TasksView() {
           flatList.push({
             initiative: init,
             objectiveId: obj.id,
+            objectiveDescription: obj.description,
             keyResultId: kr.id,
+            keyResultDescription: kr.description,
             shortCode: `O${objIndex + 1}-KR${krIndex + 1}`,
           });
         });
@@ -103,17 +109,17 @@ export function TasksView() {
     const { objectiveId, keyResultId } = editingInitiative;
 
     // 1. Recalculate progress and status for the initiative being saved
-    const totalTasks = updatedInitiative.tasks.length;
-    const completedTasks = updatedInitiative.tasks.filter(t => t.completed).length;
-    const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-
     const finalInitiative = { ...updatedInitiative };
 
     // Update status based on progress, but don't override 'Blocked'
     if (finalInitiative.status !== 'مسدود شده') {
+      const totalTasks = finalInitiative.tasks.length;
+      const completedTasks = finalInitiative.tasks.filter(t => t.completed).length;
+      const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+      
       if (initiativeProgress === 100) {
         finalInitiative.status = 'تکمیل شده';
-      } else if (initiativeProgress > 0) {
+      } else if (initiativeProgress > 0 || completedTasks > 0) {
         finalInitiative.status = 'در حال انجام';
       } else {
         finalInitiative.status = 'شروع نشده';
@@ -132,27 +138,22 @@ export function TasksView() {
           return kr;
         }
 
-        // This is the target KR. Recalculate its progress.
+        // This is the target KR. Update its initiatives.
         const initiativesForKr = kr.initiatives.map(init =>
           init.id === finalInitiative.id ? finalInitiative : init
         );
 
-        if (initiativesForKr.length === 0) {
-          return {
-            ...kr,
-            progress: 0,
-            initiatives: initiativesForKr,
-          };
+        // Recalculate KR progress based on its initiatives' progress
+        let avgKrProgress = 0;
+        if (initiativesForKr.length > 0) {
+            const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
+              const iTotalTasks = init.tasks.length;
+              const iCompletedTasks = init.tasks.filter(t => t.completed).length;
+              const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
+              return sum + iProgress;
+            }, 0);
+            avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
         }
-
-        const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
-          const iTotalTasks = init.tasks.length;
-          const iCompletedTasks = init.tasks.filter(t => t.completed).length;
-          const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
-          return sum + iProgress;
-        }, 0);
-
-        const avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
 
         return {
           ...kr,
@@ -207,7 +208,7 @@ export function TasksView() {
           {initiativeViewModels.map(model => {
             const totalTasks = model.initiative.tasks.length;
             const completedTasks = model.initiative.tasks.filter(t => t.completed).length;
-            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+            const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
             const badgeClass = statusStyles[model.initiative.status] || statusStyles['شروع نشده'];
 
             return (
@@ -217,7 +218,20 @@ export function TasksView() {
                     <CardTitle className="text-base font-medium text-foreground pr-2 break-words">
                       {model.initiative.description}
                     </CardTitle>
-                    <Badge variant="secondary" className="text-xs whitespace-nowrap">{model.shortCode}</Badge>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap cursor-help">{model.shortCode}</Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">هدف:</span> {model.objectiveDescription}
+                            <br/>
+                            <span className="font-semibold text-foreground">نتیجه کلیدی:</span> {model.keyResultDescription}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-4">

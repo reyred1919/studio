@@ -25,9 +25,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import type { Team, Member } from '@/types/okr';
+import type { Team } from '@/types/okr';
 import { teamSchema } from '@/lib/schemas';
-import { Plus, Trash2, Edit, Users, User, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AlertDialog,
@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Skeleton } from '../ui/skeleton';
 
 const generateId = () => crypto.randomUUID();
 
@@ -65,7 +66,7 @@ function ManageTeamDialog({
     resolver: zodResolver(teamSchema),
     defaultValues: {
       name: '',
-      members: [{ name: '', avatarUrl: '' }],
+      members: [{ id: generateId(), name: '', avatarUrl: '' }],
     },
   });
 
@@ -79,12 +80,12 @@ function ManageTeamDialog({
       if (initialData) {
         reset({
             ...initialData,
-            members: initialData.members.length > 0 ? initialData.members : [{ name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
+            members: initialData.members.length > 0 ? initialData.members : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
         });
       } else {
         reset({
           name: '',
-          members: [{ name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }],
+          members: [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }],
         });
       }
     }
@@ -98,7 +99,7 @@ function ManageTeamDialog({
           ...m,
           id: m.id || generateId(),
           avatarUrl: m.avatarUrl || `https://placehold.co/40x40.png?text=${m.name.charAt(0) || '?'}`,
-      })).filter(m => m.name), // Filter out empty members
+      })).filter(m => m.name.trim()), // Filter out members with empty names
     };
     onSave(teamToSave);
     onClose();
@@ -122,23 +123,29 @@ function ManageTeamDialog({
               <Label>اعضای تیم</Label>
               <div className="space-y-3 mt-2">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                    <div className="flex-grow space-y-2">
+                  <div key={field.id} className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
+                    <User className="h-5 w-5 text-muted-foreground mt-2.5" />
+                    <div className="flex-grow space-y-1">
                         <Input
                         {...register(`members.${index}.name`)}
                         placeholder="نام عضو"
                         />
-                         {errors.members?.[index]?.name && <p className="text-sm text-destructive">{errors.members[index]?.name?.message}</p>}
+                         {errors.members?.[index]?.name && <p className="text-xs text-destructive">{errors.members[index]?.name?.message}</p>}
+                         <Input
+                          {...register(`members.${index}.avatarUrl`)}
+                          placeholder="آدرس تصویر آواتار (اختیاری)"
+                          className="text-xs"
+                        />
+                         {errors.members?.[index]?.avatarUrl && <p className="text-xs text-destructive">{errors.members[index]?.avatarUrl?.message}</p>}
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)} disabled={fields.length === 1}>
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)} disabled={fields.length < 1}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
                  {errors.members && typeof errors.members.message === 'string' && <p className="text-sm text-destructive mt-1">{errors.members.message}</p>}
               </div>
-              <Button type="button" variant="outline" className="w-full mt-3" onClick={() => append({ name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` })}>
+              <Button type="button" variant="outline" className="w-full mt-3" onClick={() => append({ id: generateId(), name: '', avatarUrl: '' })}>
                 <Plus className="h-4 w-4 ml-2" /> افزودن عضو
               </Button>
             </div>
@@ -214,9 +221,32 @@ export function TeamsClient() {
 
   if (!isMounted) {
     return (
-        <div className="space-y-6">
-            <Card><CardHeader><CardTitle>در حال بارگذاری...</CardTitle></CardHeader></Card>
-            <Card><CardHeader><CardTitle>در حال بارگذاری...</CardTitle></CardHeader></Card>
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/2" />
+                    <Skeleton className="h-4 w-1/4 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-wrap gap-4">
+                        <Skeleton className="h-10 w-24 rounded-md" />
+                        <Skeleton className="h-10 w-24 rounded-md" />
+                        <Skeleton className="h-10 w-24 rounded-md" />
+                    </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/2" />
+                    <Skeleton className="h-4 w-1/4 mt-2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-wrap gap-4">
+                        <Skeleton className="h-10 w-24 rounded-md" />
+                        <Skeleton className="h-10 w-24 rounded-md" />
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
   }
@@ -286,7 +316,7 @@ export function TeamsClient() {
                         {team.members.map(member => (
                             <div key={member.id} className="flex items-center gap-2 p-2 rounded-md bg-secondary">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={member.avatarUrl} alt={member.name} />
+                                    <AvatarImage src={member.avatarUrl} alt={member.name} data-ai-hint="چهره پروفایل" />
                                     <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-sm font-medium text-secondary-foreground">{member.name}</span>
