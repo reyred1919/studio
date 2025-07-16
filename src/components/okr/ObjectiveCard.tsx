@@ -1,20 +1,35 @@
-import type { Objective } from '@/types/okr';
+import type { Objective, Team } from '@/types/okr';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { KeyResultDisplay } from './KeyResultDisplay';
-import { Target, Edit3, CalendarCheck2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Target, Edit3, CalendarCheck2, ChevronDown, Users } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import React from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface ObjectiveCardProps {
   objective: Objective;
+  team?: Team;
   onEdit: (objective: Objective) => void;
   onCheckIn: (objective: Objective) => void;
 }
 
-export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardProps) {
+export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveCardProps) {
   const [openKeyResult, setOpenKeyResult] = React.useState<string | undefined>(objective.keyResults.length > 0 ? `kr-0` : undefined);
   
+  const allAssignees = React.useMemo(() => {
+    const assigneesMap = new Map();
+    objective.keyResults.forEach(kr => {
+        kr.assignees?.forEach(assignee => {
+            if (!assigneesMap.has(assignee.id)) {
+                assigneesMap.set(assignee.id, assignee);
+            }
+        });
+    });
+    return Array.from(assigneesMap.values());
+  }, [objective.keyResults]);
+
   return (
     <Card className="mb-6 shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-xl overflow-hidden">
       <CardHeader className="bg-card_ p-5">
@@ -23,8 +38,14 @@ export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardPro
             <Target className="w-10 h-10 text-primary flex-shrink-0" />
             <div className="flex-grow min-w-0">
               <CardTitle className="text-xl font-headline font-semibold text-primary break-words">{objective.description}</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-1">
-                {objective.keyResults.length} نتیجه کلیدی
+              <CardDescription className="text-sm text-muted-foreground mt-1 flex items-center gap-4">
+                <span>{objective.keyResults.length} نتیجه کلیدی</span>
+                {team && (
+                    <span className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        {team.name}
+                    </span>
+                )}
               </CardDescription>
             </div>
           </div>
@@ -45,10 +66,27 @@ export function ObjectiveCard({ objective, onEdit, onCheckIn }: ObjectiveCardPro
               <AccordionItem value={`kr-${index}`} key={kr.id} className="border bg-card rounded-lg shadow-sm overflow-hidden">
                 <AccordionTrigger className="p-4 hover:no-underline focus:no-underline hover:bg-secondary/30 data-[state=open]:bg-secondary/30">
                   <div className="flex justify-between items-center w-full">
-                    <span className="font-medium text-foreground text-sm sm:text-base flex-grow break-words pl-2">{kr.description}</span>
+                    <span className="font-medium text-foreground text-sm sm:text-base flex-grow break-words pl-2 text-right">{kr.description}</span>
                     <div className="flex items-center flex-shrink-0">
-                      <span className="text-sm text-muted-foreground ml-2">{kr.progress}%</span>
-                      <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 accordion-chevron" />
+                      <span className="text-sm text-muted-foreground ml-4">{kr.progress}%</span>
+                       {kr.assignees && kr.assignees.length > 0 && (
+                          <div className="flex -space-x-2 rtl:space-x-reverse overflow-hidden mr-2">
+                             <TooltipProvider delayDuration={100}>
+                              {kr.assignees.slice(0, 3).map(assignee => (
+                                <Tooltip key={assignee.id}>
+                                  <TooltipTrigger asChild>
+                                    <Avatar className="h-6 w-6 border-2 border-background">
+                                      <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                                      <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>{assignee.name}</p></TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </TooltipProvider>
+                          </div>
+                        )}
+                      <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 accordion-chevron ml-2" />
                     </div>
                   </div>
                 </AccordionTrigger>

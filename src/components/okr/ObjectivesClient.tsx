@@ -104,12 +104,6 @@ export function ObjectivesClient() {
 
   useEffect(() => {
     if (isMounted) {
-      localStorage.setItem('okrTrackerData_teams_fa', JSON.stringify(teams));
-    }
-  }, [teams, isMounted]);
-
-  useEffect(() => {
-    if (isMounted) {
       if (okrCycle) {
         localStorage.setItem('okrTrackerData_cycle_fa', JSON.stringify({
           startDate: okrCycle.startDate.toISOString(),

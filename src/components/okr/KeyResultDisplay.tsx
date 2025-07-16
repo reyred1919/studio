@@ -3,9 +3,11 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { InitiativeDisplay } from './InitiativeDisplay';
-import { ListChecks, Zap, Smile, Meh, Frown, AlertTriangle, ChevronDown } from 'lucide-react';
+import { ListChecks, Zap, Smile, Meh, Frown, AlertTriangle } from 'lucide-react';
 import type { ConfidenceLevel } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface KeyResultDisplayProps {
   keyResult: KeyResult;
@@ -26,9 +28,32 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
     <Card className="mb-0 shadow-none border-none_ bg-transparent_">
       <CardHeader className="pb-2 pt-1 px-1">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <ListChecks className="w-5 h-5 text-primary flex-shrink-0" />
-            <CardTitle className="text-base font-medium text-foreground">{keyResult.description}</CardTitle>
+          <div className="flex items-center gap-2 flex-grow min-w-0">
+            <ListChecks className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
+            <div className="flex-grow">
+              <CardTitle className="text-base font-medium text-foreground">{keyResult.description}</CardTitle>
+              {keyResult.assignees && keyResult.assignees.length > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex -space-x-2 rtl:space-x-reverse overflow-hidden">
+                    <TooltipProvider delayDuration={100}>
+                      {keyResult.assignees.map(assignee => (
+                        <Tooltip key={assignee.id}>
+                          <TooltipTrigger asChild>
+                            <Avatar className="h-6 w-6 border-2 border-card">
+                              <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                              <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{assignee.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </TooltipProvider>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
              <ConfidenceIcon className={`w-5 h-5 ${confidence.textClass}`} />

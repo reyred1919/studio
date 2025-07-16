@@ -1,16 +1,79 @@
-import { SidebarProvider } from '@/components/ui/sidebar';
-import AppShell from '@/components/layout/AppShell';
 
-export default function AppLayout({
-  children,
-}: Readonly<{
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { Target, LayoutDashboard, ListChecks, CalendarDays, History, Users } from 'lucide-react';
+import Image from 'next/image';
+
+interface AppLayoutProps {
   children: React.ReactNode;
-}>) {
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
+  const { state } = useSidebar();
+  const pathname = usePathname();
+
+  const menuItems = [
+    { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard },
+    { href: '/objectives', label: 'مدیریت اهداف', icon: Target },
+    { href: '/teams', label: 'مدیریت تیم‌ها', icon: Users },
+    { href: '/tasks', label: 'مدیریت وظیفه‌ها', icon: ListChecks },
+    { href: '/calendar', label: 'تقویم', icon: CalendarDays },
+    { href: '/timeline', label: 'زمان‌نمای چرخه OKR', icon: History },
+  ];
+
   return (
     <SidebarProvider>
-      <AppShell>
-        {children}
-      </AppShell>
+      <Sidebar collapsible="icon" side="right">
+        <SidebarHeader className="p-4 items-center border-b border-sidebar-border">
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="https://placehold.co/40x40.png" alt="لوگو برنامه" width={36} height={36} className="rounded-full" data-ai-hint="لوگو دایره" />
+            {state === 'expanded' && <span className="text-lg font-semibold text-sidebar-foreground">ردیاب OKR</span>}
+          </Link>
+        </SidebarHeader>
+        <SidebarContent className="p-2">
+          <SidebarMenu>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href} passHref>
+                  <SidebarMenuButton
+                    isActive={pathname === item.href}
+                    tooltip={{ children: item.label, side: 'left', className: 'font-body' }}
+                    asChild
+                  >
+                    <a>
+                      <item.icon className="h-5 w-5" />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset className="flex flex-col">
+        <AppHeader />
+        <main className="flex-grow">
+          {children}
+        </main>
+         <footer className="py-4 text-center text-sm text-muted-foreground border-t mt-auto">
+           ردیاب OKR &copy; {new Date().getFullYear()} - روی آنچه مهم است تمرکز کنید.
+        </footer>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

@@ -1,6 +1,18 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema, okrCycleSchema, calendarSettingsSchema, initiativeSchema, taskSchema } from '@/lib/schemas';
+import type { objectiveFormSchema, okrCycleSchema, calendarSettingsSchema, initiativeSchema, taskSchema, teamSchema, memberSchema } from '@/lib/schemas';
 import type { ConfidenceLevel, InitiativeStatus, MeetingFrequencyValue, PersianWeekDayValue } from '@/lib/constants';
+
+export interface Member {
+  id: string;
+  name: string;
+  avatarUrl: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  members: Member[];
+}
 
 export interface Task {
   id: string;
@@ -21,12 +33,14 @@ export interface KeyResult {
   progress: number; // 0-100
   confidenceLevel: ConfidenceLevel;
   initiatives: Initiative[];
+  assignees: Member[];
 }
 
 export interface Objective {
   id: string;
   description: string;
   keyResults: KeyResult[];
+  teamId?: string;
 }
 
 export interface OkrCycle {
@@ -38,6 +52,8 @@ export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
 export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
 export type TaskFormData = z.infer<typeof taskSchema>;
 export type InitiativeFormData = z.infer<typeof initiativeSchema>;
+export type TeamFormData = z.infer<typeof teamSchema>;
+export type MemberFormData = z.infer<typeof memberSchema>;
 
 
 // Calendar specific types

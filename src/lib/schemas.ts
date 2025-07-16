@@ -2,6 +2,18 @@
 import { z } from 'zod';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, MEETING_FREQUENCIES, PERSIAN_WEEK_DAYS } from './constants';
 
+export const memberSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "نام عضو الزامی است.").max(100, "نام عضو بیش از حد طولانی است."),
+  avatarUrl: z.string().url("آدرس آواتار نامعتبر است.").optional().or(z.literal('')),
+});
+
+export const teamSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "نام تیم الزامی است.").max(100, "نام تیم بیش از حد طولانی است."),
+  members: z.array(memberSchema).min(1, "تیم باید حداقل یک عضو داشته باشد."),
+});
+
 export const taskSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, "شرح وظیفه الزامی است.").max(200, "شرح وظیفه بیش از حد طولانی است."),
@@ -22,11 +34,13 @@ export const keyResultSchema = z.object({
   progress: z.number().min(0, "پیشرفت باید بین ۰ و ۱۰۰ باشد").max(100, "پیشرفت باید بین ۰ و ۱۰۰ باشد").default(0).optional(),
   confidenceLevel: z.enum(CONFIDENCE_LEVELS),
   initiatives: z.array(initiativeSchema).default([]),
+  assignees: z.array(memberSchema).optional().default([]),
 });
 
 export const objectiveFormSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, "شرح هدف الزامی است").max(500, "شرح هدف بیش از حد طولانی است"),
+  teamId: z.string({ required_error: "انتخاب تیم مسئول الزامی است." }).min(1, "انتخاب تیم مسئول الزامی است."),
   keyResults: z.array(keyResultSchema)
     .min(2, "حداقل دو نتیجه کلیدی الزامی است")
     .max(5, "حداکثر پنج نتیجه کلیدی مجاز است"),

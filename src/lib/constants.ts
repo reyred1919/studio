@@ -8,7 +8,8 @@ export const DEFAULT_KEY_RESULT = {
   description: '', 
   progress: 0, 
   confidenceLevel: 'متوسط' as ConfidenceLevel, 
-  initiatives: [] 
+  initiatives: [],
+  assignees: [],
 };
 
 export const MEETING_FREQUENCIES = [

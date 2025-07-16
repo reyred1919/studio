@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, PlusCircle } from 'lucide-react';
-import type { Objective, ObjectiveFormData, KeyResult } from '@/types/okr';
+import { Trash2, PlusCircle, ChevronsUpDown } from 'lucide-react';
+import type { Objective, ObjectiveFormData, KeyResult, Team, Member } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel } from '@/lib/constants';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface ManageObjectiveDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: ObjectiveFormData) => void;
   initialData?: Objective | null;
+  teams: Team[];
 }
 
 type KeyResultFormData = ObjectiveFormData['keyResults'][number];
@@ -36,7 +40,8 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     description: DEFAULT_KEY_RESULT.description,
     progress: DEFAULT_KEY_RESULT.progress,
     confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
-    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init, tasks: []})) 
+    initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init, tasks: []})),
+    assignees: [],
   };
   const minKrs = 2;
   let krsToUse: KeyResultFormData[] = [];
@@ -45,23 +50,21 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     krsToUse = objective.keyResults.map(kr => ({ 
       ...kr, 
       progress: kr.progress ?? 0,
-      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, tasks: init.tasks || []})) : [] 
+      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, tasks: init.tasks || []})) : [],
+      assignees: kr.assignees || [],
     }));
   }
   
   while (krsToUse.length < minKrs) {
-    krsToUse.push({ ...defaultKrTemplate, initiatives: [] }); 
+    krsToUse.push({ ...defaultKrTemplate, initiatives: [], assignees: [] }); 
   }
   return krsToUse;
 };
 
 
-export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }: ManageObjectiveDialogProps) {
+export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, teams }: ManageObjectiveDialogProps) {
   const form = useForm<ObjectiveFormData>({
     resolver: zodResolver(objectiveFormSchema),
-    defaultValues: initialData 
-      ? { ...initialData, description: initialData.description || '', keyResults: getInitialKeyResultsForForm(initialData) }
-      : { description: '', keyResults: getInitialKeyResultsForForm(null) },
   });
 
   const { fields: krFields, append: appendKr, remove: removeKr } = useFieldArray({
@@ -69,19 +72,33 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
     name: 'keyResults',
   });
 
-  React.useEffect(() => {
+  const selectedTeamId = form.watch('teamId');
+  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
+
+  useEffect(() => {
     if (isOpen) {
-      const newDefaultValues = initialData 
-        ? { ...initialData, description: initialData.description || '', keyResults: getInitialKeyResultsForForm(initialData) }
-        : { description: '', keyResults: getInitialKeyResultsForForm(null) };
-      form.reset(newDefaultValues);
+      const defaultValues = initialData
+        ? { ...initialData, description: initialData.description || '', teamId: initialData.teamId, keyResults: getInitialKeyResultsForForm(initialData) }
+        : { description: '', teamId: undefined, keyResults: getInitialKeyResultsForForm(null) };
+      form.reset(defaultValues);
     }
-  }, [isOpen, initialData, form.reset]);
+  }, [isOpen, initialData, teams, form.reset]);
+  
+  useEffect(() => {
+    if (selectedTeamId) {
+      const team = teams.find(t => t.id === selectedTeamId);
+      setTeamMembers(team ? team.members : []);
+    } else {
+      setTeamMembers([]);
+    }
+  }, [selectedTeamId, teams]);
 
   const processSubmit = (data: ObjectiveFormData) => {
     onSubmit(data);
     onClose(); 
   };
+  
+  const selectedTeam = teams.find(t => t.id === selectedTeamId);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -104,6 +121,27 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                 placeholder="مثال: ایجاد تحول در تجربه پشتیبانی مشتری"
               />
               {form.formState.errors.description && <p className="text-destructive text-sm mt-1">{form.formState.errors.description.message}</p>}
+            </div>
+
+            <div>
+                <Label htmlFor="teamId" className="font-semibold text-base">تیم مسئول</Label>
+                 <Controller
+                    name="teamId"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="انتخاب تیم" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map(team => (
+                            <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                {form.formState.errors.teamId && <p className="text-destructive text-sm mt-1">{form.formState.errors.teamId.message}</p>}
             </div>
 
             <div>
@@ -134,25 +172,45 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
                     />
                     {form.formState.errors.keyResults?.[krIndex]?.description && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.description?.message}</p>}
                     
-                    <div>
-                      <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
-                      <Controller
-                        name={`keyResults.${krIndex}.confidenceLevel`}
-                        control={form.control}
-                        render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="انتخاب سطح اطمینان" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CONFIDENCE_LEVELS.map(level => (
-                                <SelectItem key={level} value={level}>{level}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`keyResults.${krIndex}.confidenceLevel`}>سطح اطمینان</Label>
+                        <Controller
+                          name={`keyResults.${krIndex}.confidenceLevel`}
+                          control={form.control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger className="mt-1">
+                                <SelectValue placeholder="انتخاب سطح اطمینان" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CONFIDENCE_LEVELS.map(level => (
+                                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {form.formState.errors.keyResults?.[krIndex]?.confidenceLevel && <p className="text-destructive text-sm">{form.formState.errors.keyResults[krIndex]?.confidenceLevel?.message}</p>}
+                      </div>
+                      <div>
+                        <Label>مسئولین</Label>
+                        <Controller
+                            name={`keyResults.${krIndex}.assignees`}
+                            control={form.control}
+                            render={({ field }) => (
+                                <MultiSelect
+                                    options={teamMembers}
+                                    selected={field.value || []}
+                                    onChange={field.onChange}
+                                    className="mt-1"
+                                    placeholder="انتخاب مسئولین..."
+                                    disabled={!selectedTeamId}
+                                />
+                            )}
+                        />
+                         {form.formState.errors.keyResults?.[krIndex]?.assignees && <p className="text-destructive text-sm mt-1">{form.formState.errors.keyResults?.[krIndex]?.assignees?.message}</p>}
+                      </div>
                     </div>
 
                     <InitiativesArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
@@ -164,7 +222,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData }
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط'})} 
+                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط', assignees: []})} 
                 className="mt-2 w-full"
                 disabled={krFields.length >= 5}
               >
