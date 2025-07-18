@@ -3,14 +3,17 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { useSession } from 'next-auth/react';
 import type { Objective, Initiative, Task } from '@/types/okr';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ListChecks, GanttChartSquare, Settings, AlertCircle, Loader2 } from 'lucide-react';
 import type { InitiativeStatus } from '@/lib/constants';
-import { INITIATIVE_STATUSES } from '@/lib/constants';
+import { getObjectives, saveObjective } from '@/lib/data/actions';
+import { useToast } from '@/hooks/use-toast';
 
 const ManageInitiativeDialog = dynamic(() => import('@/components/tasks/ManageInitiativeDialog').then(mod => mod.ManageInitiativeDialog), {
   loading: () => <p>در حال بارگذاری...</p>,
@@ -26,53 +29,34 @@ const statusStyles: Record<InitiativeStatus, string> = {
 // Represents a flattened initiative for easy rendering
 interface InitiativeViewModel {
   initiative: Initiative;
-  objectiveId: string;
+  objectiveId: number;
   objectiveDescription: string;
-  keyResultId: string;
+  keyResultId: number;
   keyResultDescription: string;
   shortCode: string;
 }
 
 export function TasksView() {
+  const { data: session, status } = useSession();
   const [objectives, setObjectives] = useState<Objective[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingInitiative, setEditingInitiative] = useState<InitiativeViewModel | null>(null);
   const [isManageInitiativeDialogOpen, setIsManageInitiativeDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    let loadedObjectives: Objective[] = [];
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
-    if (storedObjectives) {
-      try {
-        const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives)) {
-          loadedObjectives = parsedObjectives;
-        }
-      } catch (error) {
-        console.error("Failed to parse objectives from localStorage", error);
-      }
+    if (status === 'authenticated') {
+        setIsLoading(true);
+        getObjectives()
+            .then(setObjectives)
+            .catch(() => toast({ variant: "destructive", title: "خطا در بارگذاری داده‌ها" }))
+            .finally(() => setIsLoading(false));
     }
-    
-    // Data migration: ensure all initiatives have a tasks array
-    const objectivesWithTasks = loadedObjectives.map(obj => ({
-      ...obj,
-      keyResults: obj.keyResults.map(kr => ({
-        ...kr,
-        initiatives: kr.initiatives.map(init => ({
-          ...init,
-          tasks: init.tasks || [],
-        })),
-      })),
-    }));
-    setObjectives(objectivesWithTasks);
-    setIsMounted(true);
-  }, []);
+     if (status === 'unauthenticated') {
+        setIsLoading(false);
+    }
+  }, [status, toast]);
 
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
-    }
-  }, [objectives, isMounted]);
 
   const initiativeViewModels = useMemo((): InitiativeViewModel[] => {
     const flatList: InitiativeViewModel[] = [];
@@ -103,77 +87,71 @@ export function TasksView() {
     setIsManageInitiativeDialogOpen(false);
   };
 
-  const handleSaveInitiative = useCallback((updatedInitiative: Initiative) => {
+  const handleSaveInitiative = useCallback(async (updatedInitiative: Initiative) => {
     if (!editingInitiative) return;
 
     const { objectiveId, keyResultId } = editingInitiative;
+    const originalObjective = objectives.find(o => o.id === objectiveId);
+    if (!originalObjective) return;
 
     // 1. Recalculate progress and status for the initiative being saved
     const finalInitiative = { ...updatedInitiative };
-
-    // Update status based on progress, but don't override 'Blocked'
     if (finalInitiative.status !== 'مسدود شده') {
       const totalTasks = finalInitiative.tasks.length;
       const completedTasks = finalInitiative.tasks.filter(t => t.completed).length;
       const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
       
-      if (initiativeProgress === 100) {
-        finalInitiative.status = 'تکمیل شده';
-      } else if (initiativeProgress > 0 || completedTasks > 0) {
-        finalInitiative.status = 'در حال انجام';
-      } else {
-        finalInitiative.status = 'شروع نشده';
-      }
+      if (initiativeProgress === 100) finalInitiative.status = 'تکمیل شده';
+      else if (initiativeProgress > 0) finalInitiative.status = 'در حال انجام';
+      else finalInitiative.status = 'شروع نشده';
     }
 
     // 2. Create the new objectives array with updated KR progress
-    const newObjectives = objectives.map(obj => {
-      if (obj.id !== objectiveId) {
-        return obj;
+    const newKeyResults = originalObjective.keyResults.map(kr => {
+      if (kr.id !== keyResultId) return kr;
+      
+      const initiativesForKr = kr.initiatives.map(init =>
+        init.id === finalInitiative.id ? finalInitiative : init
+      );
+
+      let avgKrProgress = 0;
+      if (initiativesForKr.length > 0) {
+        const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
+          const iTotalTasks = init.tasks.length;
+          const iCompletedTasks = init.tasks.filter(t => t.completed).length;
+          const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
+          return sum + iProgress;
+        }, 0);
+        avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
       }
 
-      // This is the target objective, find the KR and update it
-      const newKeyResults = obj.keyResults.map(kr => {
-        if (kr.id !== keyResultId) {
-          return kr;
-        }
-
-        // This is the target KR. Update its initiatives.
-        const initiativesForKr = kr.initiatives.map(init =>
-          init.id === finalInitiative.id ? finalInitiative : init
-        );
-
-        // Recalculate KR progress based on its initiatives' progress
-        let avgKrProgress = 0;
-        if (initiativesForKr.length > 0) {
-            const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
-              const iTotalTasks = init.tasks.length;
-              const iCompletedTasks = init.tasks.filter(t => t.completed).length;
-              const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
-              return sum + iProgress;
-            }, 0);
-            avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
-        }
-
-        return {
-          ...kr,
-          progress: Math.round(avgKrProgress), // round to nearest integer
-          initiatives: initiativesForKr,
-        };
-      });
-
-      return {
-        ...obj,
-        keyResults: newKeyResults,
-      };
+      return { ...kr, progress: Math.round(avgKrProgress), initiatives: initiativesForKr };
     });
+    
+    const updatedObjective = { ...originalObjective, keyResults: newKeyResults };
 
-    setObjectives(newObjectives);
-    handleCloseDialog();
-  }, [editingInitiative, objectives]);
+    // 3. Save the entire updated objective to the backend
+    try {
+        const objectiveToSave = {
+            ...updatedObjective,
+            teamId: String(updatedObjective.teamId), // Ensure teamId is a string for the form data type
+            keyResults: updatedObjective.keyResults.map(kr => ({
+                ...kr,
+                assignees: kr.assignees || [], // Ensure assignees is present
+            })),
+        };
+        const savedObjective = await saveObjective(objectiveToSave, objectiveId);
+        setObjectives(prev => prev.map(obj => obj.id === savedObjective.id ? savedObjective : obj));
+        toast({ title: "اقدام به‌روزرسانی شد" });
+    } catch(e) {
+        toast({ variant: 'destructive', title: "خطا در ذخیره اقدام" });
+    } finally {
+        handleCloseDialog();
+    }
+  }, [editingInitiative, objectives, toast]);
 
 
-  if (!isMounted) {
+  if (isLoading || status === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
