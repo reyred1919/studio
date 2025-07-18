@@ -279,7 +279,7 @@ export function TeamsClient() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>آیا از حذف این تیم مطمئن هستید؟</AlertDialogTitle>
                           <AlertDialogDescription>
-                            این عمل غیرقابل بازگشت است. تمام اعضای این تیم نیز حذف خواهند شد.
+                            این عمل غیرقابل بازگشت است و در صورتی که تیمی به هدفی اختصاص داده نشده باشد حذف خواهد شد.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

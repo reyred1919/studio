@@ -16,6 +16,7 @@ export interface Team {
   userId?: number;
   name: string;
   members: Member[];
+  createdAt: Date;
 }
 
 export interface Task {
@@ -48,7 +49,7 @@ export interface Objective {
   userId?: number;
   description: string;
   keyResults: KeyResult[];
-  teamId: string; // Stays as string for form compatibility
+  teamId: string; // Keep as string for form compatibility, convert in actions
 }
 
 // Form data types

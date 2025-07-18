@@ -10,7 +10,6 @@ import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Plus, Settings2, Loader2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { getObjectives, saveObjective, deleteObjective, getTeams, saveOkrCycle, getOkrCycle } from '@/lib/data/actions';
 
 const ManageObjectiveDialog = dynamic(() => import('@/components/okr/ManageObjectiveDialog').then(mod => mod.ManageObjectiveDialog), {
@@ -62,6 +61,9 @@ export function ObjectivesClient() {
         }
       };
       loadData();
+    }
+     if (status === 'unauthenticated') {
+      setIsLoadingData(false);
     }
   }, [status, toast]);
 
@@ -158,7 +160,7 @@ export function ObjectivesClient() {
             <ObjectiveCard
               key={obj.id}
               objective={obj}
-              team={obj.teamId ? teamsMap.get(obj.teamId) : undefined}
+              team={obj.teamId ? teamsMap.get(parseInt(obj.teamId)) : undefined}
               onEdit={handleEditObjective}
               onCheckIn={handleOpenCheckInModal}
             />

@@ -68,8 +68,8 @@ export const tasks = pgTable('tasks', {
 export const okrCycles = pgTable('okr_cycles', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-    startDate: date('start_date').notNull(),
-    endDate: date('end_date').notNull(),
+    startDate: date('start_date', { mode: 'string' }).notNull(),
+    endDate: date('end_date', { mode: 'string' }).notNull(),
 });
 
 export const calendarSettings = pgTable('calendar_settings', {
@@ -77,7 +77,7 @@ export const calendarSettings = pgTable('calendar_settings', {
     userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
     frequency: varchar('frequency', { length: 50 }).notNull(),
     checkInDayOfWeek: integer('check_in_day_of_week').notNull(),
-    evaluationDate: date('evaluation_date'),
+    evaluationDate: date('evaluation_date', { mode: 'string' }),
 });
 
 

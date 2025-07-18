@@ -17,13 +17,8 @@ export default function AuthButton() {
   const { data: session, status } = useSession();
 
   const handleLogout = () => {
-    // Clear local storage on logout
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('okrTrackerData_objectives_fa');
-      localStorage.removeItem('okrTrackerData_teams_fa');
-      localStorage.removeItem('okrTrackerData_cycle_fa');
-      localStorage.removeItem('okrCalendarSettings_fa');
-    }
+    // No need to clear local storage anymore as it's fully deprecated.
+    // The server actions and database handle data persistence.
     signOut({ callbackUrl: '/' });
   };
 

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
-import type { Objective, Initiative, Task } from '@/types/okr';
+import type { Objective, Initiative, Task, ObjectiveFormData } from '@/types/okr';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -99,10 +99,9 @@ export function TasksView() {
     if (finalInitiative.status !== 'مسدود شده') {
       const totalTasks = finalInitiative.tasks.length;
       const completedTasks = finalInitiative.tasks.filter(t => t.completed).length;
-      const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
       
-      if (initiativeProgress === 100) finalInitiative.status = 'تکمیل شده';
-      else if (initiativeProgress > 0) finalInitiative.status = 'در حال انجام';
+      if (completedTasks === totalTasks && totalTasks > 0) finalInitiative.status = 'تکمیل شده';
+      else if (completedTasks > 0) finalInitiative.status = 'در حال انجام';
       else finalInitiative.status = 'شروع نشده';
     }
 
@@ -132,12 +131,13 @@ export function TasksView() {
 
     // 3. Save the entire updated objective to the backend
     try {
-        const objectiveToSave = {
+        const objectiveToSave: ObjectiveFormData = {
             ...updatedObjective,
-            teamId: String(updatedObjective.teamId), // Ensure teamId is a string for the form data type
+            teamId: String(updatedObjective.teamId), 
             keyResults: updatedObjective.keyResults.map(kr => ({
                 ...kr,
-                assignees: kr.assignees || [], // Ensure assignees is present
+                initiatives: kr.initiatives.map(i => ({...i, tasks: i.tasks || []})),
+                assignees: kr.assignees || [], 
             })),
         };
         const savedObjective = await saveObjective(objectiveToSave, objectiveId);
