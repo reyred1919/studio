@@ -14,9 +14,11 @@ export async function POST(req: Request) {
     }
 
     // Check if user already exists
-    const existingUser = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    const existingUser = await db.query.users.findFirst({
+        where: eq(users.username, username),
+    });
 
-    if (existingUser.length > 0) {
+    if (existingUser) {
       return NextResponse.json({ message: 'این نام کاربری قبلا ثبت شده است.' }, { status: 409 });
     }
 
@@ -32,6 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'کاربر با موفقیت ایجاد شد.' }, { status: 201 });
   } catch (error) {
     console.error('Registration error:', error);
-    return NextResponse.json({ message: 'خطای داخلی سرور' }, { status: 500 });
+    return NextResponse.json({ message: 'خطای داخلی سرور هنگام ثبت‌نام رخ داد.' }, { status: 500 });
   }
 }
