@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../src/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
 // Load environment variables from .env.local
 config({ path: '.env.local' });
@@ -18,23 +19,32 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema });
 
+const SEED_USER_USERNAME = 'user';
+const SEED_USER_PASSWORD = 'password';
+
 const main = async () => {
   console.log('🌱 Running seed script after migration...');
 
   try {
-    // We will seed data for a user with a known username.
-    // This is more robust than relying on ID=1.
-    const SEED_USER_USERNAME = 'user';
-
-    const user = await db.query.users.findFirst({
+    // Check if the seed user already exists
+    let user = await db.query.users.findFirst({
       where: eq(schema.users.username, SEED_USER_USERNAME),
     });
 
     if (!user) {
-      console.log(`- Seed user "${SEED_USER_USERNAME}" not found. Skipping team seeding.`);
-      // Optionally, you could create the seed user here if they don't exist.
-      // For now, we'll just exit gracefully.
-      return;
+      console.log(`- Seed user "${SEED_USER_USERNAME}" not found. Creating it...`);
+      const hashedPassword = await bcrypt.hash(SEED_USER_PASSWORD, 10);
+      const newUser = await db
+        .insert(schema.users)
+        .values({
+          username: SEED_USER_USERNAME,
+          password: hashedPassword,
+        })
+        .returning();
+      user = newUser[0];
+      console.log(`- User "${SEED_USER_USERNAME}" created successfully.`);
+    } else {
+        console.log(`- Seed user "${SEED_USER_USERNAME}" already exists. Skipping creation.`);
     }
 
     console.log(`- Seeding data for user: ${user.username} (ID: ${user.id})`);
@@ -73,7 +83,7 @@ const main = async () => {
         console.log(`- Creating team: "${teamData.name}"`);
         const [newTeam] = await tx
           .insert(schema.teams)
-          .values({ name: teamData.name, userId: user.id })
+          .values({ name: teamData.name, userId: user!.id })
           .returning();
 
         if (teamData.members.length > 0) {
