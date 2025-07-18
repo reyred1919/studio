@@ -11,4 +11,9 @@ export default {
   dbCredentials: {
     connectionString: process.env.DATABASE_URL!,
   },
+  // This hook tells drizzle-kit to run our seed script after every migration.
+  // This is the most robust way to handle seeding.
+  run: {
+    afterMigrate: ['tsx', './drizzle/seed.ts']
+  }
 } satisfies Config;
