@@ -175,6 +175,9 @@ export function TeamsClient() {
         .catch(() => toast({ variant: 'destructive', title: 'خطا در بارگذاری تیم‌ها' }))
         .finally(() => setIsLoading(false));
     }
+     if (status === 'unauthenticated') {
+      setIsLoading(false);
+    }
   }, [status, toast]);
 
   const handleAddTeam = () => {
@@ -189,9 +192,13 @@ export function TeamsClient() {
   
   const handleDeleteTeam = async (teamId: number) => {
     try {
-      await deleteTeam(teamId);
-      setTeams(prev => prev.filter(t => t.id !== teamId));
-      toast({ title: "تیم حذف شد" });
+      const result = await deleteTeam(teamId);
+      if (result.success) {
+        setTeams(prev => prev.filter(t => t.id !== teamId));
+        toast({ title: "تیم حذف شد" });
+      } else {
+        toast({ variant: 'destructive', title: 'خطا', description: result.message });
+      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'خطا در حذف تیم' });
     }
@@ -200,13 +207,11 @@ export function TeamsClient() {
   const handleSaveTeam = async (data: TeamFormData) => {
     try {
       const savedTeam = await saveTeam(data, editingTeam?.id);
-      setTeams(prev => {
-        const existing = prev.find(t => t.id === savedTeam.id);
-        if (existing) {
-          return prev.map(t => t.id === savedTeam.id ? savedTeam : t);
-        }
-        return [...prev, savedTeam];
-      });
+      if(editingTeam) {
+        setTeams(prev => prev.map(t => t.id === savedTeam.id ? savedTeam : t));
+      } else {
+        setTeams(prev => [...prev, savedTeam]);
+      }
       toast({ title: "تیم ذخیره شد" });
     } catch (error) {
        toast({ variant: 'destructive', title: 'خطا در ذخیره تیم' });
@@ -219,6 +224,14 @@ export function TeamsClient() {
         <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
         <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری تیم‌ها...</h1>
       </div>
+    );
+  }
+  
+  if (status === 'unauthenticated') {
+    return (
+        <div className="flex flex-col items-center justify-center h-[60vh]">
+            <h1 className="text-2xl font-semibold text-muted-foreground">برای مشاهده تیم‌ها لطفاً وارد شوید.</h1>
+        </div>
     );
   }
 
@@ -266,7 +279,7 @@ export function TeamsClient() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>آیا از حذف این تیم مطمئن هستید؟</AlertDialogTitle>
                           <AlertDialogDescription>
-                            این عمل غیرقابل بازگشت است.
+                            این عمل غیرقابل بازگشت است. تمام اعضای این تیم نیز حذف خواهند شد.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -287,7 +300,7 @@ export function TeamsClient() {
                         {team.members.map(member => (
                             <div key={member.id} className="flex items-center gap-2 p-2 rounded-md bg-secondary">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={member.avatarUrl} alt={member.name} data-ai-hint="چهره پروفایل" />
+                                    <AvatarImage src={member.avatarUrl ?? undefined} alt={member.name} data-ai-hint="چهره پروفایل" />
                                     <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-sm font-medium text-secondary-foreground">{member.name}</span>
