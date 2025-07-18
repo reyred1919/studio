@@ -7,12 +7,12 @@ import type { ConfidenceLevel } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight } from 'lucide-react';
+import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { faIR } from 'date-fns/locale';
 import Link from 'next/link';
-
-const initialObjectivesData: Objective[] = [];
+import { useSession } from 'next-auth/react';
+import { getObjectives, getOkrCycle } from '@/lib/data/actions';
 
 const getProgressIndicatorClass = (progress: number): string => {
     if (progress >= 75) return 'bg-green-500';
@@ -35,52 +35,39 @@ const getProgressIcon = (progress: number) => {
 
 
 export function DashboardView() {
+  const { data: session, status } = useSession();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsMounted(true);
-    let loadedObjectives: Objective[] = [];
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
-    if (storedObjectives) {
-      try {
-        const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
-           loadedObjectives = parsedObjectives;
+    if (status === 'authenticated') {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          const [objectivesData, cycleData] = await Promise.all([
+            getObjectives(),
+            getOkrCycle(),
+          ]);
+          setObjectives(objectivesData);
+          if (cycleData) {
+            setOkrCycle({
+              startDate: new Date(cycleData.startDate),
+              endDate: new Date(cycleData.endDate),
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load dashboard data", error);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to parse Persian objectives from localStorage", error);
-      }
+      };
+      loadData();
     }
-
-    const objectivesWithTasks = loadedObjectives.map(obj => ({
-        ...obj,
-        keyResults: obj.keyResults.map(kr => ({
-            ...kr,
-            initiatives: kr.initiatives.map(init => ({
-                ...init,
-                tasks: init.tasks || [],
-            })),
-        })),
-    }));
-    setObjectives(objectivesWithTasks);
-
-    const storedCycle = localStorage.getItem('okrTrackerData_cycle_fa');
-    if (storedCycle) {
-      try {
-        const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
-        if (parsedCycle.startDate && parsedCycle.endDate) {
-          setOkrCycle({
-            startDate: new Date(parsedCycle.startDate),
-            endDate: new Date(parsedCycle.endDate),
-          });
-        }
-      } catch (error) {
-        console.error("Failed to parse OKR cycle from localStorage", error);
-      }
+    if (status === 'unauthenticated') {
+        setIsLoading(false);
     }
-  }, []);
+  }, [status]);
 
   const summaryStats = useMemo(() => {
     let totalProgressSum = 0;
@@ -101,7 +88,7 @@ export function DashboardView() {
         'در معرض خطر': { icon: AlertTriangle, colorClass: 'text-red-600' },
     };
 
-    const objectivesWithProgress: { id: string; description: string; progress: number }[] = [];
+    const objectivesWithProgress: { id: string | number; description: string; progress: number }[] = [];
 
     objectives.forEach(obj => {
       let totalKrProgress = 0;
@@ -174,10 +161,10 @@ export function DashboardView() {
     };
   }, [objectives, okrCycle]);
 
-  if (!isMounted) {
+  if (isLoading || status === 'loading') {
      return (
        <div className="flex flex-col items-center justify-center h-[60vh]">
-         <TrendingUp className="w-16 h-16 text-primary mb-6 animate-pulse" />
+         <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
          <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری داشبورد...</h1>
        </div>
      );

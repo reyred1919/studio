@@ -16,9 +16,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Lightbulb, Sparkles } from 'lucide-react';
-import type { Objective } from '@/types/okr';
+import type { Objective, ObjectiveFormData } from '@/types/okr';
 import { getOkrImprovementSuggestionsAction } from '@/lib/actions';
-import { CONFIDENCE_LEVELS, type ConfidenceLevel } from '@/lib/constants';
+import { CONFIDENCE_LEVELS } from '@/lib/constants';
 import { checkInFormSchema, type CheckInFormData } from '@/lib/schemas';
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,7 +28,7 @@ interface CheckInModalProps {
   isOpen: boolean;
   onClose: () => void;
   objective: Objective | null;
-  onUpdateObjective: (updatedObjective: Objective) => void;
+  onUpdateObjective: (updatedObjective: ObjectiveFormData) => void;
 }
 
 export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: CheckInModalProps) {
@@ -55,11 +55,21 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
   if (!objective) return null;
 
   const processCheckIn = (data: CheckInFormData) => {
-    const updatedKeyResults = objective.keyResults.map(originalKr => {
-      const updatedKrData = data.keyResults.find(ukr => ukr.id === originalKr.id);
-      return updatedKrData ? { ...originalKr, confidenceLevel: updatedKrData.confidenceLevel } : originalKr;
-    });
-    onUpdateObjective({ ...objective, keyResults: updatedKeyResults });
+    const updatedObjectiveData: ObjectiveFormData = {
+        ...objective,
+        teamId: String(objective.teamId),
+        keyResults: objective.keyResults.map(originalKr => {
+            const updatedKrData = data.keyResults.find(ukr => ukr.id === originalKr.id);
+            return {
+                ...originalKr,
+                progress: originalKr.progress || 0,
+                confidenceLevel: updatedKrData ? updatedKrData.confidenceLevel : originalKr.confidenceLevel,
+                initiatives: originalKr.initiatives.map(init => ({ ...init, tasks: init.tasks || [] })),
+                assignees: originalKr.assignees || [],
+            };
+        })
+    };
+    onUpdateObjective(updatedObjectiveData);
     toast({ title: "ثبت پیشرفت ذخیره شد!", description: "سطح اطمینان OKR شما به‌روزرسانی شد." });
   };
 
@@ -135,7 +145,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
                             <Select
                               onValueChange={controllerField.onChange}
                               value={controllerField.value}
-                              dir="rtl" // Explicitly set dir for select
+                              dir="rtl"
                             >
                               <SelectTrigger id={`krConfidence-${index}`} className="mt-1.5">
                                 <SelectValue placeholder="انتخاب سطح اطمینان" />
@@ -158,10 +168,10 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
 
           {aiSuggestions.length > 0 && (
             <Alert className="mt-6 bg-accent/10 border-accent/40 text-accent-foreground shadow">
-              <Sparkles className="h-5 w-5 text-accent ml-3" /> {/* Added ml for RTL spacing */}
+              <Sparkles className="h-5 w-5 text-accent ml-3" />
               <AlertTitle className="font-headline text-accent">پیشنهادهای مبتنی بر هوش مصنوعی</AlertTitle>
               <AlertDescription className="text-accent-foreground/90">
-                <ul className="list-disc pr-5 space-y-1.5 mt-2 text-sm"> {/* Changed pl-5 to pr-5 for RTL */}
+                <ul className="list-disc pr-5 space-y-1.5 mt-2 text-sm">
                   {aiSuggestions.map((suggestion, i) => <li key={i}>{suggestion}</li>)}
                 </ul>
               </AlertDescription>

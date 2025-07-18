@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -13,7 +14,6 @@ import {
   isBefore,
   isSameDay,
   isToday,
-  parseISO,
   setDay,
   startOfDay,
 } from 'date-fns';
@@ -36,6 +36,7 @@ import type { OkrCycle, CalendarSettings, ScheduledMeeting, CalendarSettingsForm
 import { calendarSettingsSchema } from '@/lib/schemas';
 import { MEETING_FREQUENCIES, PERSIAN_WEEK_DAYS } from '@/lib/constants';
 
+// Local storage is not ideal with auth, but we keep it for cycle and calendar for simplicity for now.
 const CALENDAR_SETTINGS_STORAGE_KEY = 'okrCalendarSettings_fa';
 const OKR_CYCLE_STORAGE_KEY = 'okrTrackerData_cycle_fa';
 
@@ -61,14 +62,16 @@ export function CalendarView() {
   const watchedEvaluationDate = watch('evaluationDate');
 
   useEffect(() => {
+    // These should ideally come from a user settings table in the DB.
+    // Using localStorage for now to keep the feature working without more DB changes.
     const storedCycle = localStorage.getItem(OKR_CYCLE_STORAGE_KEY);
     if (storedCycle) {
       try {
         const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
         if (parsedCycle.startDate && parsedCycle.endDate) {
           setOkrCycle({
-            startDate: parseISO(parsedCycle.startDate),
-            endDate: parseISO(parsedCycle.endDate),
+            startDate: new Date(parsedCycle.startDate),
+            endDate: new Date(parsedCycle.endDate),
           });
         }
       } catch (error) {
@@ -79,15 +82,11 @@ export function CalendarView() {
     const storedSettings = localStorage.getItem(CALENDAR_SETTINGS_STORAGE_KEY);
     if (storedSettings) {
       try {
-        const parsedSettings: CalendarSettings = JSON.parse(storedSettings);
-        if (parsedSettings.evaluationDate) {
-          parsedSettings.evaluationDate = parseISO(parsedSettings.evaluationDate as unknown as string);
+        const parsedSettings: any = JSON.parse(storedSettings);
+         if (parsedSettings.evaluationDate) {
+          parsedSettings.evaluationDate = new Date(parsedSettings.evaluationDate);
         }
-        reset({
-          frequency: parsedSettings.frequency,
-          checkInDayOfWeek: parsedSettings.checkInDayOfWeek,
-          evaluationDate: parsedSettings.evaluationDate,
-        });
+        reset(parsedSettings);
         setCalendarSettings(parsedSettings);
       } catch (error) {
         console.error("Failed to parse calendar settings from localStorage", error);
@@ -95,36 +94,16 @@ export function CalendarView() {
     }
     setIsMounted(true);
   }, [reset]);
-
+  
+  // Persist to localStorage
   useEffect(() => {
     if (isMounted && calendarSettings) {
-      const settingsToStore = {
-        ...calendarSettings,
-        evaluationDate: calendarSettings.evaluationDate ? calendarSettings.evaluationDate.toISOString() : undefined,
-      };
-      localStorage.setItem(CALENDAR_SETTINGS_STORAGE_KEY, JSON.stringify(settingsToStore));
+        localStorage.setItem(CALENDAR_SETTINGS_STORAGE_KEY, JSON.stringify(calendarSettings));
     }
-  }, [calendarSettings, isMounted]);
-
-  useEffect(() => {
-    if (!isMounted) return;
-
-    const currentOkrCycleEndDate = okrCycle?.endDate;
-    const formCheckInDayOfWeek = typeof watchedCheckInDay === 'string' ? parseInt(watchedCheckInDay, 10) : watchedCheckInDay;
-
-    if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && !isNaN(formCheckInDayOfWeek) && watchedEvaluationDate === undefined) {
-      let suggestedDate = setDay(currentOkrCycleEndDate, formCheckInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-      suggestedDate = startOfDay(suggestedDate);
-
-      if (isAfter(suggestedDate, currentOkrCycleEndDate)) {
-        suggestedDate = addWeeks(suggestedDate, -1);
-      }
-
-      if (okrCycle?.startDate && !isBefore(suggestedDate, startOfDay(okrCycle.startDate))) {
-        setValue('evaluationDate', suggestedDate, { shouldValidate: true, shouldDirty: true });
-      }
+    if(isMounted && okrCycle){
+        localStorage.setItem(OKR_CYCLE_STORAGE_KEY, JSON.stringify(okrCycle));
     }
-  }, [isMounted, okrCycle, watchedCheckInDay, watchedEvaluationDate, setValue]);
+  }, [calendarSettings, okrCycle, isMounted]);
 
 
   const handleSaveSettings = (data: CalendarSettingsFormData) => {
@@ -222,7 +201,7 @@ export function CalendarView() {
         <Alert variant="destructive" className="max-w-md text-center">
           <AlertTitle className="font-semibold">چرخه OKR تنظیم نشده است</AlertTitle>
           <AlertDescription>
-            برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/dashboard" className="font-medium text-primary hover:underline">داشبورد</Link> تنظیم کنید.
+            برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/objectives" className="font-medium text-primary hover:underline">مدیریت اهداف</Link> تنظیم کنید.
           </AlertDescription>
         </Alert>
       </div>
@@ -271,7 +250,7 @@ export function CalendarView() {
                 control={control}
                 render={({ field }) => (
                   <Select
-                      onValueChange={(value) => field.onChange(value)}
+                      onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value !== undefined ? String(field.value) : undefined}
                   >
                     <SelectTrigger id="checkInDayOfWeek" className="mt-1">

@@ -25,9 +25,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import type { Team } from '@/types/okr';
+import type { Team, TeamFormData } from '@/types/okr';
 import { teamSchema } from '@/lib/schemas';
-import { Plus, Trash2, Edit, Users, User } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, User, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AlertDialog,
@@ -40,9 +40,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Skeleton } from '../ui/skeleton';
+import { useSession } from 'next-auth/react';
+import { getTeams, saveTeam, deleteTeam } from '@/lib/data/actions';
 
-const generateId = () => crypto.randomUUID();
+const generateId = () => String(Date.now() + Math.random());
 
 // ManageTeamDialog Component
 function ManageTeamDialog({
@@ -53,7 +54,7 @@ function ManageTeamDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (team: Team) => void;
+  onSave: (team: TeamFormData) => void;
   initialData?: Team | null;
 }) {
   const {
@@ -62,7 +63,7 @@ function ManageTeamDialog({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<Team>({
+  } = useForm<TeamFormData>({
     resolver: zodResolver(teamSchema),
     defaultValues: {
       name: '',
@@ -79,8 +80,8 @@ function ManageTeamDialog({
     if (isOpen) {
       if (initialData) {
         reset({
-            ...initialData,
-            members: initialData.members.length > 0 ? initialData.members : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
+            name: initialData.name,
+            members: initialData.members.length > 0 ? initialData.members.map(m => ({...m, id: String(m.id)})) : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
         });
       } else {
         reset({
@@ -91,15 +92,10 @@ function ManageTeamDialog({
     }
   }, [isOpen, initialData, reset]);
 
-  const onSubmit = (data: Team) => {
-    const teamToSave: Team = {
+  const onSubmit = (data: TeamFormData) => {
+    const teamToSave: TeamFormData = {
       ...data,
-      id: initialData?.id || generateId(),
-      members: data.members.map(m => ({
-          ...m,
-          id: m.id || generateId(),
-          avatarUrl: m.avatarUrl || `https://placehold.co/40x40.png?text=${m.name.charAt(0) || '?'}`,
-      })).filter(m => m.name.trim()), // Filter out members with empty names
+      members: data.members.filter(m => m.name.trim()),
     };
     onSave(teamToSave);
     onClose();
@@ -164,32 +160,22 @@ function ManageTeamDialog({
 
 // Main TeamsClient Component
 export function TeamsClient() {
+  const { status } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isManageTeamDialogOpen, setIsManageTeamDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedTeams = localStorage.getItem('okrTrackerData_teams_fa');
-    if (storedTeams) {
-      try {
-        const parsedTeams = JSON.parse(storedTeams);
-        if (Array.isArray(parsedTeams)) {
-          setTeams(parsedTeams);
-        }
-      } catch (error) {
-        console.error("Failed to parse teams from localStorage", error);
-      }
+    if (status === 'authenticated') {
+      setIsLoading(true);
+      getTeams()
+        .then(setTeams)
+        .catch(() => toast({ variant: 'destructive', title: 'خطا در بارگذاری تیم‌ها' }))
+        .finally(() => setIsLoading(false));
     }
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('okrTrackerData_teams_fa', JSON.stringify(teams));
-    }
-  }, [teams, isMounted]);
+  }, [status, toast]);
 
   const handleAddTeam = () => {
     setEditingTeam(null);
@@ -201,53 +187,38 @@ export function TeamsClient() {
     setIsManageTeamDialogOpen(true);
   };
   
-  const handleDeleteTeam = (teamId: string) => {
-    setTeams(prev => prev.filter(t => t.id !== teamId));
-    toast({ title: "تیم حذف شد", description: "تیم مورد نظر با موفقیت حذف شد." });
+  const handleDeleteTeam = async (teamId: number) => {
+    try {
+      await deleteTeam(teamId);
+      setTeams(prev => prev.filter(t => t.id !== teamId));
+      toast({ title: "تیم حذف شد" });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'خطا در حذف تیم' });
+    }
   };
 
-  const handleSaveTeam = (team: Team) => {
-    setTeams(prev => {
-      const existingTeamIndex = prev.findIndex(t => t.id === team.id);
-      if (existingTeamIndex > -1) {
-        const newTeams = [...prev];
-        newTeams[existingTeamIndex] = team;
-        return newTeams;
-      }
-      return [...prev, team];
-    });
-    toast({ title: "تیم ذخیره شد", description: "اطلاعات تیم با موفقیت ذخیره شد." });
+  const handleSaveTeam = async (data: TeamFormData) => {
+    try {
+      const savedTeam = await saveTeam(data, editingTeam?.id);
+      setTeams(prev => {
+        const existing = prev.find(t => t.id === savedTeam.id);
+        if (existing) {
+          return prev.map(t => t.id === savedTeam.id ? savedTeam : t);
+        }
+        return [...prev, savedTeam];
+      });
+      toast({ title: "تیم ذخیره شد" });
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'خطا در ذخیره تیم' });
+    }
   };
 
-  if (!isMounted) {
+  if (isLoading || status === 'loading') {
     return (
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-1/2" />
-                    <Skeleton className="h-4 w-1/4 mt-2" />
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-4">
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-1/2" />
-                    <Skeleton className="h-4 w-1/4 mt-2" />
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-4">
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
+        <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری تیم‌ها...</h1>
+      </div>
     );
   }
 
@@ -295,7 +266,7 @@ export function TeamsClient() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>آیا از حذف این تیم مطمئن هستید؟</AlertDialogTitle>
                           <AlertDialogDescription>
-                            این عمل غیرقابل بازگشت است. تمام اهداف مرتبط با این تیم، ارتباط خود را از دست خواهند داد.
+                            این عمل غیرقابل بازگشت است.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

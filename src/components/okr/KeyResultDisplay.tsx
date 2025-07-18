@@ -1,3 +1,4 @@
+
 import type { KeyResult } from '@/types/okr';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +41,7 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
                         <Tooltip key={assignee.id}>
                           <TooltipTrigger asChild>
                             <Avatar className="h-6 w-6 border-2 border-card">
-                              <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                              {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />}
                               <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                           </TooltipTrigger>

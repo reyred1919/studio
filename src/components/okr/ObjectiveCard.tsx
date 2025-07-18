@@ -1,3 +1,4 @@
+
 import type { Objective, Team } from '@/types/okr';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,21 +19,9 @@ interface ObjectiveCardProps {
 export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveCardProps) {
   const [openKeyResult, setOpenKeyResult] = React.useState<string | undefined>(objective.keyResults.length > 0 ? `kr-0` : undefined);
   
-  const allAssignees = React.useMemo(() => {
-    const assigneesMap = new Map();
-    objective.keyResults.forEach(kr => {
-        kr.assignees?.forEach(assignee => {
-            if (!assigneesMap.has(assignee.id)) {
-                assigneesMap.set(assignee.id, assignee);
-            }
-        });
-    });
-    return Array.from(assigneesMap.values());
-  }, [objective.keyResults]);
-
   return (
     <Card className="mb-6 shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-xl overflow-hidden">
-      <CardHeader className="bg-card_ p-5">
+      <CardHeader className="bg-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 flex-grow min-w-0">
             <Target className="w-10 h-10 text-primary flex-shrink-0" />
@@ -59,7 +48,7 @@ export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveC
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-5 bg-background/50_">
+      <CardContent className="p-5 bg-background/50">
         {objective.keyResults.length > 0 ? (
            <Accordion type="single" collapsible className="w-full space-y-3" value={openKeyResult} onValueChange={setOpenKeyResult}>
             {objective.keyResults.map((kr, index) => (
@@ -76,7 +65,7 @@ export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveC
                                 <Tooltip key={assignee.id}>
                                   <TooltipTrigger asChild>
                                     <Avatar className="h-6 w-6 border-2 border-background">
-                                      <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                                      {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />}
                                       <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                   </TooltipTrigger>
@@ -90,7 +79,7 @@ export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveC
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="p-4 border-t bg-card_">
+                <AccordionContent className="p-4 border-t bg-card">
                    <KeyResultDisplay keyResult={kr} />
                 </AccordionContent>
               </AccordionItem>

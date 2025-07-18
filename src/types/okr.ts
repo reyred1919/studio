@@ -1,59 +1,70 @@
+
 import type { z } from 'zod';
 import type { objectiveFormSchema, okrCycleSchema, calendarSettingsSchema, initiativeSchema, taskSchema, teamSchema, memberSchema } from '@/lib/schemas';
 import type { ConfidenceLevel, InitiativeStatus, MeetingFrequencyValue, PersianWeekDayValue } from '@/lib/constants';
 
+// DB-like types
 export interface Member {
-  id: string;
+  id: number;
+  teamId?: number;
   name: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
 }
 
 export interface Team {
-  id: string;
+  id: number;
+  userId?: number;
   name: string;
   members: Member[];
 }
 
 export interface Task {
-  id: string;
+  id: number;
+  initiativeId?: number;
   description: string;
   completed: boolean;
 }
 
 export interface Initiative {
-  id: string;
+  id: number;
+  keyResultId?: number;
   description: string;
   status: InitiativeStatus;
   tasks: Task[];
 }
 
 export interface KeyResult {
-  id: string;
+  id: number;
+  objectiveId?: number;
   description: string;
-  progress: number; // 0-100
+  progress: number;
   confidenceLevel: ConfidenceLevel;
   initiatives: Initiative[];
   assignees: Member[];
 }
 
 export interface Objective {
-  id: string;
+  id: number;
+  userId?: number;
   description: string;
   keyResults: KeyResult[];
-  teamId?: string;
+  teamId: string; // Stays as string for form compatibility
 }
 
+// Form data types
+export type MemberFormData = z.infer<typeof memberSchema>;
+export type TeamFormData = z.infer<typeof teamSchema>;
+export type TaskFormData = z.infer<typeof taskSchema>;
+export type InitiativeFormData = z.infer<typeof initiativeSchema>;
+export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
+
+
+// Other types
 export interface OkrCycle {
   startDate: Date;
   endDate: Date;
 }
-
-export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
 export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
-export type TaskFormData = z.infer<typeof taskSchema>;
-export type InitiativeFormData = z.infer<typeof initiativeSchema>;
-export type TeamFormData = z.infer<typeof teamSchema>;
-export type MemberFormData = z.infer<typeof memberSchema>;
 
 
 // Calendar specific types

@@ -3,13 +3,15 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useSession } from 'next-auth/react';
 import type { Objective, ObjectiveFormData, OkrCycle, OkrCycleFormData, Team } from '@/types/okr';
 import { ObjectiveCard } from '@/components/okr/ObjectiveCard';
 import { EmptyState } from '@/components/okr/EmptyState';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Plus, Settings2 } from 'lucide-react';
+import { Plus, Settings2, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getObjectives, saveObjective, deleteObjective, getTeams, saveOkrCycle, getOkrCycle } from '@/lib/data/actions';
 
 const ManageObjectiveDialog = dynamic(() => import('@/components/okr/ManageObjectiveDialog').then(mod => mod.ManageObjectiveDialog), {
   loading: () => <p>در حال بارگذاری...</p>,
@@ -21,10 +23,8 @@ const ManageOkrCycleDialog = dynamic(() => import('@/components/okr/ManageOkrCyc
   loading: () => <p>در حال بارگذاری...</p>,
 });
 
-
-const generateId = () => crypto.randomUUID();
-
 export function ObjectivesClient() {
+  const { data: session, status } = useSession();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isManageObjectiveDialogOpen, setIsManageObjectiveDialogOpen] = useState(false);
@@ -34,86 +34,36 @@ export function ObjectivesClient() {
   const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
   const [isManageCycleDialogOpen, setIsManageCycleDialogOpen] = useState(false);
   const { toast } = useToast();
-  const [isMounted, setIsMounted] = useState(false);
-
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    // Load objectives
-    let loadedObjectives: Objective[] = [];
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
-    if (storedObjectives) {
-      try {
-        const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives)) {
-           loadedObjectives = parsedObjectives;
-        }
-      } catch (error) {
-        console.error("Failed to parse objectives from localStorage", error);
-      }
-    }
-    
-    const objectivesWithDefaults = loadedObjectives.map(obj => ({
-        ...obj,
-        keyResults: obj.keyResults.map(kr => ({
-            ...kr,
-            initiatives: kr.initiatives.map(init => ({
-                ...init,
-                tasks: init.tasks || [], 
-            })),
-            assignees: kr.assignees || [],
-        })),
-    }));
-    setObjectives(objectivesWithDefaults);
-
-    // Load teams
-    const storedTeams = localStorage.getItem('okrTrackerData_teams_fa');
-    if (storedTeams) {
+    if (status === 'authenticated') {
+      const loadData = async () => {
+        setIsLoadingData(true);
         try {
-            const parsedTeams = JSON.parse(storedTeams);
-            if (Array.isArray(parsedTeams)) {
-                setTeams(parsedTeams);
-            }
+          const [objectivesData, teamsData, cycleData] = await Promise.all([
+            getObjectives(),
+            getTeams(),
+            getOkrCycle(),
+          ]);
+          setObjectives(objectivesData);
+          setTeams(teamsData);
+          if (cycleData) {
+            setOkrCycle({
+                startDate: new Date(cycleData.startDate),
+                endDate: new Date(cycleData.endDate),
+            });
+          }
         } catch (error) {
-            console.error("Failed to parse teams from localStorage", error);
+          toast({ variant: 'destructive', title: 'خطا در بارگذاری داده‌ها' });
+          console.error(error);
+        } finally {
+          setIsLoadingData(false);
         }
+      };
+      loadData();
     }
-
-    // Load OKR cycle
-    const storedCycle = localStorage.getItem('okrTrackerData_cycle_fa');
-    if (storedCycle) {
-      try {
-        const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
-        if (parsedCycle.startDate && parsedCycle.endDate) {
-          setOkrCycle({
-            startDate: new Date(parsedCycle.startDate),
-            endDate: new Date(parsedCycle.endDate),
-          });
-        }
-      } catch (error) {
-        console.error("Failed to parse OKR cycle from localStorage", error);
-      }
-    }
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted) { 
-      localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
-    }
-  }, [objectives, isMounted]);
-
-  useEffect(() => {
-    if (isMounted) {
-      if (okrCycle) {
-        localStorage.setItem('okrTrackerData_cycle_fa', JSON.stringify({
-          startDate: okrCycle.startDate.toISOString(),
-          endDate: okrCycle.endDate.toISOString(),
-        }));
-      } else {
-        localStorage.removeItem('okrTrackerData_cycle_fa');
-      }
-    }
-  }, [okrCycle, isMounted]);
+  }, [status, toast]);
 
   const handleAddObjectiveClick = () => {
     setEditingObjective(null);
@@ -125,34 +75,20 @@ export function ObjectivesClient() {
     setIsManageObjectiveDialogOpen(true);
   };
 
-  const handleManageObjectiveSubmit = (data: ObjectiveFormData) => {
-    const processedObjective: Objective = {
-      id: data.id || editingObjective?.id || generateId(), 
-      description: data.description,
-      teamId: data.teamId,
-      keyResults: data.keyResults.map(kr => ({
-        id: kr.id || generateId(),
-        description: kr.description,
-        progress: kr.progress ?? 0, 
-        confidenceLevel: kr.confidenceLevel,
-        assignees: kr.assignees || [],
-        initiatives: kr.initiatives.map(init => ({
-          id: init.id || generateId(),
-          description: init.description,
-          status: init.status,
-          tasks: init.tasks || [],
-        })),
-      })),
-    };
-
-    if (editingObjective || data.id) { 
-      setObjectives(prev => prev.map(obj => obj.id === processedObjective.id ? processedObjective : obj));
-      toast({ title: "هدف به‌روزرسانی شد", description: `هدف «${processedObjective.description}» با موفقیت به‌روزرسانی شد.` });
-    } else { 
-      setObjectives(prev => [...prev, processedObjective]);
-      toast({ title: "هدف اضافه شد", description: `هدف «${processedObjective.description}» با موفقیت اضافه شد.` });
+  const handleManageObjectiveSubmit = async (data: ObjectiveFormData) => {
+    try {
+      const savedObjective = await saveObjective(data, editingObjective?.id);
+      if (editingObjective) {
+        setObjectives(prev => prev.map(obj => obj.id === savedObjective.id ? savedObjective : obj));
+        toast({ title: "هدف به‌روزرسانی شد" });
+      } else {
+        setObjectives(prev => [...prev, savedObjective]);
+        toast({ title: "هدف اضافه شد" });
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'خطا در ذخیره هدف' });
     }
-    setEditingObjective(null); 
+    setEditingObjective(null);
     setIsManageObjectiveDialogOpen(false);
   };
   
@@ -161,30 +97,32 @@ export function ObjectivesClient() {
     setIsCheckInModalOpen(true);
   };
 
-  const handleUpdateObjectiveAfterCheckIn = (updatedObjective: Objective) => {
-     setObjectives(prev => prev.map(obj => obj.id === updatedObjective.id ? updatedObjective : obj));
+  const handleUpdateObjectiveAfterCheckIn = async (updatedObjectiveData: ObjectiveFormData) => {
+     try {
+        const savedObjective = await saveObjective(updatedObjectiveData, updatedObjectiveData.id);
+        setObjectives(prev => prev.map(obj => obj.id === savedObjective.id ? savedObjective : obj));
+     } catch (error) {
+        toast({ variant: 'destructive', title: 'خطا در به‌روزرسانی هدف' });
+     }
   };
 
-  const handleManageCycleSubmit = (data: OkrCycleFormData) => {
-    setOkrCycle({ startDate: data.startDate, endDate: data.endDate });
+  const handleManageCycleSubmit = async (data: OkrCycleFormData) => {
+     try {
+        await saveOkrCycle(data);
+        setOkrCycle({ startDate: data.startDate, endDate: data.endDate });
+        toast({ title: "چرخه OKR به‌روزرسانی شد" });
+     } catch (error) {
+        toast({ variant: 'destructive', title: 'خطا در ذخیره چرخه' });
+     }
   };
   
   const teamsMap = new Map(teams.map(team => [team.id, team]));
 
-  if (!isMounted) {
+  if (status === 'loading' || isLoadingData) {
     return (
-      <div>
-        <div className="flex justify-between items-center mb-6">
-            <Skeleton className="h-8 w-48" />
-            <div className="flex gap-2">
-                <Skeleton className="h-10 w-36" />
-                <Skeleton className="h-10 w-36" />
-            </div>
-        </div>
-        <div className="space-y-8">
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
+        <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری اطلاعات...</h1>
       </div>
     );
   }
