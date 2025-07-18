@@ -22,7 +22,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
+function AppLayoutContent({ children }: AppLayoutProps) {
   const { state } = useSidebar();
   const pathname = usePathname();
 
@@ -36,7 +36,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ];
 
   return (
-    <SidebarProvider>
+    <>
       <Sidebar collapsible="icon" side="right">
         <SidebarHeader className="p-4 items-center border-b border-sidebar-border">
           <Link href="/" className="flex items-center gap-2">
@@ -74,6 +74,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
            ردیاب OKR &copy; {new Date().getFullYear()} - روی آنچه مهم است تمرکز کنید.
         </footer>
       </SidebarInset>
+    </>
+  );
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
+  return (
+    <SidebarProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
     </SidebarProvider>
   );
 }
