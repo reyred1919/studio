@@ -48,16 +48,14 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref>
+                <Link href={item.href} passHref legacyBehavior>
                   <SidebarMenuButton
+                    as="a"
                     isActive={pathname === item.href}
                     tooltip={{ children: item.label, side: 'left', className: 'font-body' }}
-                    asChild
                   >
-                    <a>
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.label}</span>
-                    </a>
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.label}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
