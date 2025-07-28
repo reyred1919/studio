@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/db';
@@ -6,7 +7,7 @@ import {
   teamMemberships,
   users,
   invitationLinks,
-} from '@/lib/db/schema';
+} from '../../drizzle/schema';
 import { auth } from '@/lib/auth';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
