@@ -168,8 +168,12 @@ export function TeamsClient() {
 
   useEffect(() => {
     async function fetchTeams() {
-      if (!session?.user?.id) return;
       setIsLoading(true);
+      if (!session?.user?.id) {
+          setIsLoading(false);
+          return;
+      }
+
       try {
         const userTeams = await getTeamsForUser(session.user.id);
         setTeams(userTeams);
