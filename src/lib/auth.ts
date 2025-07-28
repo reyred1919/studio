@@ -1,10 +1,11 @@
+
 'use server';
 
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { teamMemberships, teams, users } from '@/lib/db/schema';
+import { teamMemberships, teams, users } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
