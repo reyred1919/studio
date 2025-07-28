@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '../ui/skeleton';
 import { addTeam, deleteTeam, getTeamsForUser, updateTeam } from '@/lib/actions';
-import { useSession } from 'next-auth/react';
+// import { useSession } from 'next-auth/react';
 import { Badge } from '../ui/badge';
 
 
@@ -70,13 +70,8 @@ function ManageTeamDialog({
     resolver: zodResolver(teamSchema.omit({ id: true, ownerId: true, invitationLink: true })),
     defaultValues: {
       name: '',
-      members: [{ id: generateId(), name: '', avatarUrl: '' }],
+      members: [], // Members are not managed in this dialog anymore
     },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'members',
   });
 
   useEffect(() => {
@@ -84,12 +79,12 @@ function ManageTeamDialog({
       if (initialData) {
         reset({
             name: initialData.name,
-            members: initialData.members.length > 0 ? initialData.members.map(m => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl || '' })) : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
+            members: initialData.members
         });
       } else {
         reset({
           name: '',
-          members: [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }],
+          members: [],
         });
       }
     }
@@ -163,7 +158,8 @@ function InvitationLinkDisplay({ link }: { link: string | null | undefined }) {
 
 
 export function TeamsClient() {
-  const { data: session } = useSession();
+  // const { data: session } = useSession();
+  const session = { user: { id: 'mock-user-id', name: 'کاربر تستی' }}; // Mock session
   const [teams, setTeams] = useState<TeamWithMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isManageTeamDialogOpen, setIsManageTeamDialogOpen] = useState(false);
@@ -215,8 +211,10 @@ export function TeamsClient() {
       if (editingTeam) {
         // Update logic
         const updatedTeam = await updateTeam({ ...editingTeam, ...teamData });
-        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? { ...t, name: updatedTeam.name } : t));
-        toast({ title: "تیم به‌روزرسانی شد" });
+        if (updatedTeam) {
+            setTeams(prev => prev.map(t => t.id === updatedTeam.id ? { ...t, name: updatedTeam.name } : t));
+            toast({ title: "تیم به‌روزرسانی شد" });
+        }
       } else {
         // Create logic
         const newTeam = await addTeam({ name: teamData.name }, session.user.id);
@@ -254,8 +252,8 @@ export function TeamsClient() {
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <h2 className="text-2xl font-semibold font-headline text-foreground">مدیریت تیم‌ها</h2>
-        <Button onClick={handleAddTeam}>
-          <Plus className="h-4 w-4 ml-2" /> ایجاد تیم جدید
+        <Button onClick={handleAddTeam} disabled>
+          <Plus className="h-4 w-4 ml-2" /> ایجاد تیم جدید (غیرفعال)
         </Button>
       </div>
 
@@ -264,8 +262,8 @@ export function TeamsClient() {
             <Users className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-semibold mb-2">هنوز تیمی ایجاد نشده است</h2>
             <p className="text-muted-foreground mb-6">با ایجاد اولین تیم خود، مدیریت همکاری را شروع کنید.</p>
-            <Button onClick={handleAddTeam} size="lg">
-                <Plus className="w-5 h-5 ml-2" /> ایجاد اولین تیم
+            <Button onClick={handleAddTeam} size="lg" disabled>
+                <Plus className="w-5 h-5 ml-2" /> ایجاد اولین تیم (غیرفعال)
             </Button>
         </div>
       ) : (
@@ -282,13 +280,13 @@ export function TeamsClient() {
                      <Badge variant={team.role === 'admin' ? 'default' : 'secondary'}>{team.role}</Badge>
                      {team.role === 'admin' && (
                         <>
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)}>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)} disabled>
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">ویرایش</span>
                             </Button>
                             <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" className="h-8 w-8">
+                                <Button variant="destructive" size="icon" className="h-8 w-8" disabled>
                                     <Trash2 className="h-4 w-4" />
                                     <span className="sr-only">حذف</span>
                                 </Button>

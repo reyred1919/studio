@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Lightbulb, Sparkles } from 'lucide-react';
 import type { Objective } from '@/types/okr';
-import { getOkrImprovementSuggestionsAction } from '@/lib/actions';
+import { suggestOkrsImprovements, type SuggestOkrsImprovementsOutput } from '@/ai/flows/suggest-okr-improvements';
 import { CONFIDENCE_LEVELS, type ConfidenceLevel } from '@/lib/constants';
 import { checkInFormSchema, type CheckInFormData } from '@/lib/schemas';
 import { useToast } from "@/hooks/use-toast";
@@ -77,15 +77,23 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
     };
 
     try {
-      const result = await getOkrImprovementSuggestionsAction(currentObjectiveState);
-      if (result.suggestions && result.suggestions.length > 0 && !(result.suggestions.length === 1 && result.suggestions[0].startsWith("Error:"))) {
+      const result: SuggestOkrsImprovementsOutput = await suggestOkrsImprovements({
+          objectiveDescription: currentObjectiveState.description,
+          keyResults: currentObjectiveState.keyResults.map(kr => ({
+              keyResultDescription: kr.description,
+              progress: kr.progress,
+              confidenceLevel: kr.confidenceLevel,
+              initiatives: kr.initiatives.map(init => ({
+                  initiativeDescription: init.description,
+                  status: init.status,
+              })),
+          })),
+      });
+
+      if (result && result.suggestions && result.suggestions.length > 0) {
         setAiSuggestions(result.suggestions);
         toast({ title: "پیشنهادهای هوش مصنوعی آماده است!", description: "پیشنهادها را برای بهبود OKRهای خود بررسی کنید.", duration: 5000 });
-      } else if (result.suggestions && result.suggestions.length === 1 && result.suggestions[0].startsWith("Error:")) {
-         setAiSuggestions([result.suggestions[0] === "An error occurred while fetching suggestions. Please try again later." ? "در دریافت پیشنهادها خطایی روی داد. لطفاً بعداً دوباره تلاش کنید." : result.suggestions[0] ]);
-         toast({ variant: "destructive", title: "خطای پیشنهاد هوش مصنوعی", description: result.suggestions[0] === "An error occurred while fetching suggestions. Please try again later." ? "در دریافت پیشنهادها خطایی روی داد. لطفاً بعداً دوباره تلاش کنید." : result.suggestions[0], duration: 5000});
-      }
-       else {
+      } else {
         setAiSuggestions(["در حال حاضر پیشنهاد خاصی وجود ندارد. به کار خوب خود ادامه دهید!"]);
         toast({ title: "پیشنهادهای هوش مصنوعی", description: "در حال حاضر پیشنهاد خاصی وجود ندارد.", duration: 3000 });
       }

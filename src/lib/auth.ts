@@ -4,9 +4,9 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
-import { teamMemberships, teams, users } from '../../drizzle/schema';
-import { eq, and } from 'drizzle-orm';
+// import { db } from '@/lib/db';
+// import { teamMemberships, teams, users } from '../../drizzle/schema';
+// import { eq, and } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
@@ -28,6 +28,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Mock user authentication
+        const isMockUser = credentials.username === 'user' && credentials.password === 'password';
+
+        if (isMockUser) {
+          return {
+            id: 'mock-user-id',
+            name: 'کاربر تستی',
+            email: 'user@example.com',
+            username: 'user',
+          };
+        }
+
+        /*
         const user = await db.query.users.findFirst({
           where: eq(users.username, credentials.username),
         });
@@ -44,13 +57,15 @@ export const authOptions: NextAuthOptions = {
         if (!isPasswordValid) {
           return null;
         }
-
+        
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           username: user.username,
         };
+        */
+       return null;
       },
     }),
   ],
@@ -78,6 +93,7 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user, isNewUser }) {
+        /*
       const cookieStore = cookies();
       const utm_source = cookieStore.get('utm_source')?.value;
       const utm_medium = cookieStore.get('utm_medium')?.value;
@@ -138,6 +154,7 @@ export const authOptions: NextAuthOptions = {
         cookieStore.delete('utm_medium');
         cookieStore.delete('utm_campaign');
       }
+      */
     }
   }
 };
