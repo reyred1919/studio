@@ -1,0 +1,13 @@
+diff --git a/node_modules/oidc-token-hash/lib/shake256.js b/node_modules/oidc-token-hash/lib/shake256.js
+index 21c5a93..a424a1b 100644
+--- a/node_modules/oidc-token-hash/lib/shake256.js
++++ b/node_modules/oidc-token-hash/lib/shake256.js
+@@ -10,7 +10,7 @@
+ // See https://github.com/phusion/node-sha3#Example
+ 
+ const { SHAKE } = require('sha3');
+-
++globalThis.Buffer = globalThis.Buffer || require("buffer").Buffer;
+ module.exports = function shake256(input, outputLength) {
+   const hash = new SHAKE(256);
+   hash.update(input);
