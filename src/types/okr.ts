@@ -1,34 +1,44 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema, okrCycleSchema, calendarSettingsSchema, initiativeSchema, taskSchema, teamSchema, memberSchema } from '@/lib/schemas';
-import type { ConfidenceLevel, InitiativeStatus, MeetingFrequencyValue, PersianWeekDayValue } from '@/lib/constants';
+import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema } from '@/lib/schemas';
+import { roleEnum } from '@/lib/db/schema';
+import { ConfidenceLevel, InitiativeStatus } from './constants';
+
+export type Role = z.infer<typeof roleEnum>;
 
 export interface Member {
   id: string;
   name: string;
-  avatarUrl: string;
+  avatarUrl?: string | null;
 }
 
 export interface Team {
-  id: string;
+  id: number;
   name: string;
+  ownerId: string;
+  invitationLink?: string | null;
   members: Member[];
 }
 
+export interface TeamWithMembership extends Team {
+    role: Role;
+}
+
+
 export interface Task {
-  id: string;
+  id: number;
   description: string;
   completed: boolean;
 }
 
 export interface Initiative {
-  id: string;
+  id: number;
   description: string;
   status: InitiativeStatus;
   tasks: Task[];
 }
 
 export interface KeyResult {
-  id: string;
+  id: number;
   description: string;
   progress: number; // 0-100
   confidenceLevel: ConfidenceLevel;
@@ -37,37 +47,20 @@ export interface KeyResult {
 }
 
 export interface Objective {
-  id: string;
+  id: number;
   description: string;
   keyResults: KeyResult[];
-  teamId?: string;
-}
-
-export interface OkrCycle {
-  startDate: Date;
-  endDate: Date;
+  teamId: number;
 }
 
 export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
-export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
-export type TaskFormData = z.infer<typeof taskSchema>;
-export type InitiativeFormData = z.infer<typeof initiativeSchema>;
 export type TeamFormData = z.infer<typeof teamSchema>;
 export type MemberFormData = z.infer<typeof memberSchema>;
-
+export type InitiativeFormData = z.infer<typeof initiativeSchema>;
+export type TaskFormData = z.infer<typeof taskSchema>;
 
 // Calendar specific types
-export interface CalendarSettings {
-  frequency: MeetingFrequencyValue;
-  checkInDayOfWeek: PersianWeekDayValue;
-  evaluationDate?: Date;
-}
-export type CalendarSettingsFormData = z.infer<typeof calendarSettingsSchema>;
-
-export interface ScheduledMeeting {
-  id: string;
-  date: Date;
-  type: 'check-in' | 'evaluation';
-  title: string;
-  status: 'past' | 'today' | 'future';
+export interface OkrCycle {
+  startDate: Date;
+  endDate: Date;
 }

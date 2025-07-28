@@ -25,9 +25,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import type { Team } from '@/types/okr';
+import type { Team, TeamWithMembership } from '@/types/okr';
 import { teamSchema } from '@/lib/schemas';
-import { Plus, Trash2, Edit, Users, User } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, User, Clipboard, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AlertDialog,
@@ -41,10 +41,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '../ui/skeleton';
+import { addTeam, deleteTeam, getTeamsForUser, updateTeam } from '@/lib/actions';
+import { useSession } from 'next-auth/react';
+import { Badge } from '../ui/badge';
+
 
 const generateId = () => crypto.randomUUID();
 
-// ManageTeamDialog Component
+
 function ManageTeamDialog({
   isOpen,
   onClose,
@@ -53,7 +57,7 @@ function ManageTeamDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (team: Team) => void;
+  onSave: (team: Omit<Team, 'id' | 'ownerId' | 'invitationLink'>) => void;
   initialData?: Team | null;
 }) {
   const {
@@ -62,8 +66,8 @@ function ManageTeamDialog({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<Team>({
-    resolver: zodResolver(teamSchema),
+  } = useForm<Omit<Team, 'id' | 'ownerId' | 'invitationLink'>>({
+    resolver: zodResolver(teamSchema.omit({ id: true, ownerId: true, invitationLink: true })),
     defaultValues: {
       name: '',
       members: [{ id: generateId(), name: '', avatarUrl: '' }],
@@ -79,8 +83,8 @@ function ManageTeamDialog({
     if (isOpen) {
       if (initialData) {
         reset({
-            ...initialData,
-            members: initialData.members.length > 0 ? initialData.members : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
+            name: initialData.name,
+            members: initialData.members.length > 0 ? initialData.members.map(m => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl || '' })) : [{ id: generateId(), name: '', avatarUrl: `https://placehold.co/40x40.png?text=?` }]
         });
       } else {
         reset({
@@ -91,17 +95,8 @@ function ManageTeamDialog({
     }
   }, [isOpen, initialData, reset]);
 
-  const onSubmit = (data: Team) => {
-    const teamToSave: Team = {
-      ...data,
-      id: initialData?.id || generateId(),
-      members: data.members.map(m => ({
-          ...m,
-          id: m.id || generateId(),
-          avatarUrl: m.avatarUrl || `https://placehold.co/40x40.png?text=${m.name.charAt(0) || '?'}`,
-      })).filter(m => m.name.trim()), // Filter out members with empty names
-    };
-    onSave(teamToSave);
+  const onSubmit = (data: Omit<Team, 'id' | 'ownerId' | 'invitationLink'>) => {
+    onSave(data);
     onClose();
   };
 
@@ -110,7 +105,7 @@ function ManageTeamDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{initialData ? 'ویرایش تیم' : 'ایجاد تیم جدید'}</DialogTitle>
-          <DialogDescription>نام تیم و اعضای آن را مشخص کنید.</DialogDescription>
+          <DialogDescription>نام تیم را مشخص کنید. شما به صورت خودکار ادمین این تیم خواهید شد.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-4">
@@ -118,36 +113,6 @@ function ManageTeamDialog({
               <Label htmlFor="team-name">نام تیم</Label>
               <Input id="team-name" {...register('name')} className="mt-1" />
               {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
-            </div>
-            <div>
-              <Label>اعضای تیم</Label>
-              <div className="space-y-3 mt-2">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
-                    <User className="h-5 w-5 text-muted-foreground mt-2.5" />
-                    <div className="flex-grow space-y-1">
-                        <Input
-                        {...register(`members.${index}.name`)}
-                        placeholder="نام عضو"
-                        />
-                         {errors.members?.[index]?.name && <p className="text-xs text-destructive">{errors.members[index]?.name?.message}</p>}
-                         <Input
-                          {...register(`members.${index}.avatarUrl`)}
-                          placeholder="آدرس تصویر آواتار (اختیاری)"
-                          className="text-xs"
-                        />
-                         {errors.members?.[index]?.avatarUrl && <p className="text-xs text-destructive">{errors.members[index]?.avatarUrl?.message}</p>}
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)} disabled={fields.length < 1}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                 {errors.members && typeof errors.members.message === 'string' && <p className="text-sm text-destructive mt-1">{errors.members.message}</p>}
-              </div>
-              <Button type="button" variant="outline" className="w-full mt-3" onClick={() => append({ id: generateId(), name: '', avatarUrl: '' })}>
-                <Plus className="h-4 w-4 ml-2" /> افزودن عضو
-              </Button>
             </div>
           </div>
           <DialogFooter>
@@ -162,34 +127,64 @@ function ManageTeamDialog({
   );
 }
 
-// Main TeamsClient Component
+function InvitationLinkDisplay({ link }: { link: string | null | undefined }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!link) {
+    return (
+        <p className="text-sm text-muted-foreground p-2 bg-muted rounded-md text-center">
+            لینک دعوت برای این تیم در دسترس نیست.
+        </p>
+    );
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-4 p-3 border-dashed border-2 border-primary/30 rounded-lg bg-primary/5">
+        <Label className="text-xs font-semibold text-primary">لینک دعوت اختصاصی تیم</Label>
+        <div className="flex items-center gap-2 mt-2">
+            <Input
+                readOnly
+                value={link}
+                className="text-xs bg-white/50 text-primary-dark truncate"
+            />
+            <Button size="icon" variant="ghost" onClick={handleCopy} className="h-9 w-9 flex-shrink-0 text-primary hover:bg-primary/10">
+                {copied ? <Check className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+            </Button>
+        </div>
+    </div>
+  );
+}
+
+
 export function TeamsClient() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const { data: session } = useSession();
+  const [teams, setTeams] = useState<TeamWithMembership[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isManageTeamDialogOpen, setIsManageTeamDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedTeams = localStorage.getItem('okrTrackerData_teams_fa');
-    if (storedTeams) {
+    async function fetchTeams() {
+      if (!session?.user?.id) return;
+      setIsLoading(true);
       try {
-        const parsedTeams = JSON.parse(storedTeams);
-        if (Array.isArray(parsedTeams)) {
-          setTeams(parsedTeams);
-        }
+        const userTeams = await getTeamsForUser(session.user.id);
+        setTeams(userTeams);
       } catch (error) {
-        console.error("Failed to parse teams from localStorage", error);
+        toast({ title: 'خطا', description: 'دریافت اطلاعات تیم‌ها با مشکل مواجه شد.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
       }
     }
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('okrTrackerData_teams_fa', JSON.stringify(teams));
-    }
-  }, [teams, isMounted]);
+    fetchTeams();
+  }, [session, toast]);
 
   const handleAddTeam = () => {
     setEditingTeam(null);
@@ -201,52 +196,56 @@ export function TeamsClient() {
     setIsManageTeamDialogOpen(true);
   };
   
-  const handleDeleteTeam = (teamId: string) => {
-    setTeams(prev => prev.filter(t => t.id !== teamId));
-    toast({ title: "تیم حذف شد", description: "تیم مورد نظر با موفقیت حذف شد." });
+  const handleDeleteTeamWrapper = async (teamId: number) => {
+    try {
+        await deleteTeam(teamId);
+        setTeams(prev => prev.filter(t => t.id !== teamId));
+        toast({ title: "تیم حذف شد", description: "تیم مورد نظر با موفقیت حذف شد." });
+    } catch(error) {
+        toast({ title: "خطا در حذف تیم", description: (error as Error).message, variant: "destructive" });
+    }
   };
 
-  const handleSaveTeam = (team: Team) => {
-    setTeams(prev => {
-      const existingTeamIndex = prev.findIndex(t => t.id === team.id);
-      if (existingTeamIndex > -1) {
-        const newTeams = [...prev];
-        newTeams[existingTeamIndex] = team;
-        return newTeams;
+  const handleSaveTeam = async (teamData: Omit<Team, 'id'| 'ownerId' | 'invitationLink'>) => {
+     if (!session?.user?.id) {
+        toast({ title: "خطا", description: "برای ساخت یا ویرایش تیم باید وارد شوید.", variant: 'destructive' });
+        return;
       }
-      return [...prev, team];
-    });
-    toast({ title: "تیم ذخیره شد", description: "اطلاعات تیم با موفقیت ذخیره شد." });
+    try {
+      if (editingTeam) {
+        // Update logic
+        const updatedTeam = await updateTeam({ ...editingTeam, ...teamData });
+        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? { ...t, name: updatedTeam.name } : t));
+        toast({ title: "تیم به‌روزرسانی شد" });
+      } else {
+        // Create logic
+        const newTeam = await addTeam({ name: teamData.name }, session.user.id);
+        setTeams(prev => [...prev, { ...newTeam, role: 'admin', members: [] }]); // simplified local state update
+        toast({ title: "تیم جدید ساخته شد" });
+      }
+    } catch (error) {
+       toast({ title: "خطا", description: "ذخیره اطلاعات تیم با مشکل مواجه شد.", variant: 'destructive' });
+    }
   };
 
-  if (!isMounted) {
+  if (isLoading) {
     return (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-1/2" />
-                    <Skeleton className="h-4 w-1/4 mt-2" />
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-4">
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-1/2" />
-                    <Skeleton className="h-4 w-1/4 mt-2" />
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-4">
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                        <Skeleton className="h-10 w-24 rounded-md" />
-                    </div>
-                </CardContent>
-            </Card>
+            {[1, 2].map(i => (
+                <Card key={i}>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-1/2" />
+                        <Skeleton className="h-4 w-1/4 mt-2" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-4">
+                            <Skeleton className="h-10 w-24 rounded-md" />
+                            <Skeleton className="h-10 w-24 rounded-md" />
+                            <Skeleton className="h-10 w-24 rounded-md" />
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
         </div>
     );
   }
@@ -280,32 +279,37 @@ export function TeamsClient() {
                     {team.name}
                   </span>
                    <div className="flex items-center gap-2">
-                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">ویرایش</span>
-                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">حذف</span>
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>آیا از حذف این تیم مطمئن هستید؟</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            این عمل غیرقابل بازگشت است. تمام اهداف مرتبط با این تیم، ارتباط خود را از دست خواهند داد.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>لغو</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteTeam(team.id)}>
-                            حذف
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                     <Badge variant={team.role === 'admin' ? 'default' : 'secondary'}>{team.role}</Badge>
+                     {team.role === 'admin' && (
+                        <>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)}>
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">ویرایش</span>
+                            </Button>
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon" className="h-8 w-8">
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">حذف</span>
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>آیا از حذف این تیم مطمئن هستید؟</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    این عمل غیرقابل بازگشت است. تمام اهداف و اطلاعات مرتبط با این تیم حذف خواهند شد.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>لغو</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteTeamWrapper(team.id)}>
+                                    حذف
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        </>
+                     )}
                    </div>
                 </CardTitle>
                 <CardDescription>{team.members.length} عضو</CardDescription>
@@ -326,6 +330,7 @@ export function TeamsClient() {
                  ) : (
                     <p className="text-sm text-muted-foreground text-center py-4">این تیم هنوز عضوی ندارد.</p>
                  )}
+                 {team.role === 'admin' && <InvitationLinkDisplay link={team.invitationLink} />}
               </CardContent>
             </Card>
           ))}
