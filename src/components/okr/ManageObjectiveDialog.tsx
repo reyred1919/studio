@@ -31,6 +31,7 @@ interface ManageObjectiveDialogProps {
   onSubmit: (data: ObjectiveFormData) => void;
   initialData?: Objective | null;
   teams: Team[];
+  cycleId: number;
 }
 
 type KeyResultFormData = ObjectiveFormData['keyResults'][number];
@@ -62,7 +63,7 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
 };
 
 
-export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, teams }: ManageObjectiveDialogProps) {
+export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, teams, cycleId }: ManageObjectiveDialogProps) {
   const form = useForm<ObjectiveFormData>({
     resolver: zodResolver(objectiveFormSchema),
   });
@@ -78,11 +79,11 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
   useEffect(() => {
     if (isOpen) {
       const defaultValues = initialData
-        ? { ...initialData, description: initialData.description || '', teamId: initialData.teamId, keyResults: getInitialKeyResultsForForm(initialData) }
-        : { description: '', teamId: undefined, keyResults: getInitialKeyResultsForForm(null) };
+        ? { ...initialData, description: initialData.description || '', teamId: initialData.teamId, keyResults: getInitialKeyResultsForForm(initialData), cycleId: initialData.cycleId }
+        : { description: '', teamId: undefined, keyResults: getInitialKeyResultsForForm(null), cycleId: cycleId };
       form.reset(defaultValues);
     }
-  }, [isOpen, initialData, teams, form.reset]);
+  }, [isOpen, initialData, teams, cycleId, form.reset]);
   
   useEffect(() => {
     if (selectedTeamId) {
@@ -91,7 +92,9 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
     } else {
       setTeamMembers([]);
     }
-  }, [selectedTeamId, teams]);
+    // Reset assignees when team changes
+    form.setValue('keyResults', form.getValues('keyResults').map(kr => ({ ...kr, assignees: [] })));
+  }, [selectedTeamId, teams, form]);
 
   const processSubmit = (data: ObjectiveFormData) => {
     onSubmit(data);
@@ -106,7 +109,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
         <DialogHeader>
           <DialogTitle className="font-headline">{initialData ? 'ویرایش هدف' : 'افزودن هدف جدید'}</DialogTitle>
           <DialogDescription>
-            هدف خود و نتایج کلیدی و اقدامات قابل اندازه‌گیری آن را تعریف کنید.
+            هدف خود و نتایج کلیدی و اقدامات قابل اندازه‌گیری آن را تعریف کنید. این هدف به چرخه فعال فعلی اختصاص داده می‌شود.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(processSubmit)}>

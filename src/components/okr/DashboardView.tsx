@@ -11,8 +11,7 @@ import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Fr
 import { differenceInCalendarDays, format } from 'date-fns';
 import { faIR } from 'date-fns/locale';
 import Link from 'next/link';
-
-const initialObjectivesData: Objective[] = [];
+import { getActiveOkrCycle, getObjectives } from '@/lib/actions';
 
 const getProgressIndicatorClass = (progress: number): string => {
     if (progress >= 75) return 'bg-green-500';
@@ -36,50 +35,27 @@ const getProgressIcon = (progress: number) => {
 
 export function DashboardView() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
-  const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
+  const [activeCycle, setActiveCycle] = useState<OkrCycle | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-    let loadedObjectives: Objective[] = [];
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
-    if (storedObjectives) {
-      try {
-        const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives) && parsedObjectives.every(obj => obj.id && obj.description)) {
-           loadedObjectives = parsedObjectives;
+    async function fetchData() {
+        const [objectivesData, cycleData] = await Promise.all([
+            getObjectives(),
+            getActiveOkrCycle(),
+        ]);
+        setObjectives(objectivesData);
+        if (cycleData) {
+            // Convert string dates to Date objects
+            setActiveCycle({
+                ...cycleData,
+                startDate: new Date(cycleData.startDate),
+                endDate: new Date(cycleData.endDate),
+            });
         }
-      } catch (error) {
-        console.error("Failed to parse Persian objectives from localStorage", error);
-      }
+        setIsMounted(true);
     }
-
-    const objectivesWithTasks = loadedObjectives.map(obj => ({
-        ...obj,
-        keyResults: obj.keyResults.map(kr => ({
-            ...kr,
-            initiatives: kr.initiatives.map(init => ({
-                ...init,
-                tasks: init.tasks || [],
-            })),
-        })),
-    }));
-    setObjectives(objectivesWithTasks);
-
-    const storedCycle = localStorage.getItem('okrTrackerData_cycle_fa');
-    if (storedCycle) {
-      try {
-        const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
-        if (parsedCycle.startDate && parsedCycle.endDate) {
-          setOkrCycle({
-            startDate: new Date(parsedCycle.startDate),
-            endDate: new Date(parsedCycle.endDate),
-          });
-        }
-      } catch (error) {
-        console.error("Failed to parse OKR cycle from localStorage", error);
-      }
-    }
+    fetchData();
   }, []);
 
   const summaryStats = useMemo(() => {
@@ -103,7 +79,11 @@ export function DashboardView() {
 
     const objectivesWithProgress: { id: string; description: string; progress: number }[] = [];
 
-    objectives.forEach(obj => {
+    const filteredObjectives = activeCycle 
+        ? objectives.filter(obj => obj.cycleId === activeCycle.id)
+        : objectives;
+
+    filteredObjectives.forEach(obj => {
       let totalKrProgress = 0;
       let keyResultsCountInObj = obj.keyResults.length;
       
@@ -127,10 +107,10 @@ export function DashboardView() {
 
     let remainingDays: number | null = null;
     let cycleElapsedPercentage: number = 0;
-    if (okrCycle && okrCycle.startDate && okrCycle.endDate) {
+    if (activeCycle && activeCycle.startDate && activeCycle.endDate) {
       const today = new Date(); today.setHours(0,0,0,0);
-      const cycleEndDate = new Date(okrCycle.endDate); cycleEndDate.setHours(0,0,0,0);
-      const cycleStartDate = new Date(okrCycle.startDate); cycleStartDate.setHours(0,0,0,0);
+      const cycleEndDate = new Date(activeCycle.endDate); cycleEndDate.setHours(0,0,0,0);
+      const cycleStartDate = new Date(activeCycle.startDate); cycleStartDate.setHours(0,0,0,0);
 
       remainingDays = differenceInCalendarDays(cycleEndDate, today);
       if (remainingDays < 0) remainingDays = 0;
@@ -156,15 +136,16 @@ export function DashboardView() {
     const averageConfidenceMeta = confidenceMeta[averageConfidenceLabel];
 
     return {
-      totalObjectives: objectives.length,
+      totalObjectives: filteredObjectives.length,
       totalKeyResults: totalKeyResultsCount,
       averageProgress: parseFloat(averageProgress.toFixed(1)),
       remainingDays,
       cycleElapsedPercentage: Math.round(cycleElapsedPercentage),
-      cycleDates: okrCycle ? { 
-        start: format(okrCycle.startDate, "d MMMM", { locale: faIR }), 
-        end: format(okrCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
+      cycleDates: activeCycle ? { 
+        start: format(activeCycle.startDate, "d MMMM", { locale: faIR }), 
+        end: format(activeCycle.endDate, "d MMMM yyyy", { locale: faIR }) 
       } : null,
+      cycleName: activeCycle?.name,
       averageConfidence: {
         label: averageConfidenceLabel,
         Icon: averageConfidenceMeta.icon,
@@ -172,7 +153,7 @@ export function DashboardView() {
       },
       objectivesWithProgress,
     };
-  }, [objectives, okrCycle]);
+  }, [objectives, activeCycle]);
 
   if (!isMounted) {
      return (
@@ -186,7 +167,10 @@ export function DashboardView() {
   return (
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-semibold font-headline text-foreground">داشبورد خلاصه وضعیت OKR</h2>
+        <div>
+            <h2 className="text-2xl font-semibold font-headline text-foreground">داشبورد خلاصه وضعیت OKR</h2>
+            {summaryStats.cycleName && <p className="text-muted-foreground text-sm mt-1">نمایش داده‌ها برای چرخه: <span className="font-semibold text-primary">{summaryStats.cycleName}</span></p>}
+        </div>
         <Button asChild>
           <Link href="/objectives">
             مدیریت اهداف
@@ -287,7 +271,7 @@ export function DashboardView() {
                 </div>
             ) : (
                 <div className="text-center py-10">
-                    <p className="text-muted-foreground">هنوز هدفی تعریف نشده است.</p>
+                    <p className="text-muted-foreground">هنوز هدفی برای این چرخه تعریف نشده است.</p>
                     <Button asChild variant="link" className="mt-2">
                         <Link href="/objectives">همین حالا یک هدف اضافه کنید</Link>
                     </Button>

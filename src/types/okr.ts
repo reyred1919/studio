@@ -1,7 +1,7 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema, okrCycleSchema, calendarSettingsSchema } from '@/lib/schemas';
+import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema, okrCycleFormSchema } from '@/lib/schemas';
 import { roleEnum } from '@/lib/db/schema';
-import { ConfidenceLevel, InitiativeStatus } from './constants';
+import type { ConfidenceLevel, InitiativeStatus } from './constants';
 
 export type Role = z.infer<typeof roleEnum>;
 
@@ -51,6 +51,7 @@ export interface Objective {
   description: string;
   keyResults: KeyResult[];
   teamId: number;
+  cycleId: number;
 }
 
 export type ObjectiveFormData = z.infer<typeof objectiveFormSchema>;
@@ -61,15 +62,21 @@ export type TaskFormData = z.infer<typeof taskSchema>;
 
 // Calendar specific types
 export interface OkrCycle {
+  id: number;
+  name: string;
   startDate: Date;
   endDate: Date;
 }
 
-export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
+export type OkrCycleFormData = z.infer<typeof okrCycleFormSchema>;
 
-export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
-export type CalendarSettingsFormData = z.infer<typeof calendarSettingsSchema>;
+export interface CalendarSettings {
+  frequency: 'weekly' | 'bi-weekly' | 'monthly';
+  checkInDayOfWeek: number;
+  evaluationDate?: Date;
+}
 
+export type CalendarSettingsFormData = Omit<CalendarSettings, 'evaluationDate'> & { evaluationDate?: Date };
 
 export interface ScheduledMeeting {
     id: string;

@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, MEETING_FREQUENCIES } from './constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES } from './constants';
 import { roleEnum } from './db/schema';
 
 export const memberSchema = z.object({
@@ -14,9 +14,8 @@ export const teamSchema = z.object({
   name: z.string().min(1, "نام تیم الزامی است.").max(100, "نام تیم بیش از حد طولانی است."),
   ownerId: z.string().optional(),
   invitationLink: z.string().url().optional().nullable(),
-  members: z.array(memberSchema).optional().default([]), // Members are handled by join table now
+  members: z.array(memberSchema).optional().default([]),
 });
-
 
 export const taskSchema = z.object({
   id: z.number().optional(),
@@ -43,7 +42,8 @@ export const keyResultSchema = z.object({
 export const objectiveFormSchema = z.object({
   id: z.number().optional(),
   description: z.string().min(1, "شرح هدف الزامی است").max(500, "شرح هدف بیش از حد طولانی است"),
-  teamId: z.number({ required_error: "انتخاب تیم مسئول الزامی است." }),
+  teamId: z.coerce.number({ required_error: "انتخاب تیم مسئول الزامی است.", invalid_type_error: "تیم نامعتبر است." }),
+  cycleId: z.number(),
   keyResults: z.array(keyResultSchema)
     .min(1, "حداقل یک نتیجه کلیدی الزامی است")
     .max(7, "حداکثر هفت نتیجه کلیدی مجاز است"),
@@ -58,18 +58,14 @@ export const checkInFormSchema = z.object({
 
 export type CheckInFormData = z.infer<typeof checkInFormSchema>;
 
-export const okrCycleSchema = z.object({
-    startDate: z.date({ required_error: "تاریخ شروع الزامی است." }),
-    endDate: z.date({ required_error: "تاریخ پایان الزامی است." }),
-}).refine(data => data.endDate > data.startDate, {
-    message: "تاریخ پایان باید بعد از تاریخ شروع باشد.",
-    path: ["root"], // You can also use "endDate" to show it under that field
+export const okrCycleFormSchema = z.object({
+    activeCycleId: z.coerce.number({ required_error: "انتخاب چرخه الزامی است." }),
 });
 
-const meetingFrequencies = MEETING_FREQUENCIES.map(f => f.value) as [string, ...string[]];
+export type OkrCycleFormData = z.infer<typeof okrCycleFormSchema>;
 
 export const calendarSettingsSchema = z.object({
-    frequency: z.enum(meetingFrequencies, { required_error: "فرکانس جلسات الزامی است." }),
+    frequency: z.enum(['weekly', 'bi-weekly', 'monthly'], { required_error: "فرکانس جلسات الزامی است." }),
     checkInDayOfWeek: z.coerce.number().min(0).max(6, "روز هفته نامعتبر است."),
     evaluationDate: z.date({ required_error: "تاریخ ارزیابی الزامی است." }).optional(),
 });

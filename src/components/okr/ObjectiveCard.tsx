@@ -1,4 +1,4 @@
-import type { Objective, Team } from '@/types/okr';
+import type { Objective } from '@/types/okr';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { KeyResultDisplay } from './KeyResultDisplay';
@@ -10,12 +10,12 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/comp
 
 interface ObjectiveCardProps {
   objective: Objective;
-  team?: Team;
+  teamName?: string;
   onEdit: (objective: Objective) => void;
   onCheckIn: (objective: Objective) => void;
 }
 
-export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveCardProps) {
+export function ObjectiveCard({ objective, teamName, onEdit, onCheckIn }: ObjectiveCardProps) {
   const [openKeyResult, setOpenKeyResult] = React.useState<string | undefined>(objective.keyResults.length > 0 ? `kr-0` : undefined);
   
   const allAssignees = React.useMemo(() => {
@@ -40,10 +40,10 @@ export function ObjectiveCard({ objective, team, onEdit, onCheckIn }: ObjectiveC
               <CardTitle className="text-xl font-headline font-semibold text-primary break-words">{objective.description}</CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-1 flex items-center gap-4">
                 <span>{objective.keyResults.length} نتیجه کلیدی</span>
-                {team && (
+                {teamName && (
                     <span className="flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5" />
-                        {team.name}
+                        {teamName}
                     </span>
                 )}
               </CardDescription>
