@@ -104,6 +104,7 @@ export const objectives = pgTable('objectives', {
 
 export const confidenceLevelEnum = pgEnum('confidence_level', ['زیاد', 'متوسط', 'کم', 'در معرض خطر']);
 export const initiativeStatusEnum = pgEnum('initiative_status', ['شروع نشده', 'در حال انجام', 'تکمیل شده', 'مسدود شده']);
+export const riskStatusEnum = pgEnum('risk_status', ['فعال', 'در حال بررسی', 'حل شده']);
 
 export const keyResults = pgTable('key_results', {
   id: serial('id').primaryKey(),
@@ -131,6 +132,14 @@ export const tasks = pgTable('tasks', {
     .references(() => initiatives.id, { onDelete: 'cascade' }),
   description: text('description').notNull(),
   completed: boolean('completed').notNull().default(false),
+});
+
+export const risks = pgTable('risks', {
+    id: serial('id').primaryKey(),
+    keyResultId: integer('key_result_id').notNull().references(() => keyResults.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    correctiveAction: text('corrective_action').notNull(),
+    status: riskStatusEnum('risk_status').notNull().default('فعال'),
 });
 
 export const keyResultAssignments = pgTable('key_result_assignments', {

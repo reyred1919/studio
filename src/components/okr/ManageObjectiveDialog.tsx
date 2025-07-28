@@ -20,7 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, PlusCircle, ChevronsUpDown } from 'lucide-react';
 import type { Objective, ObjectiveFormData, KeyResult, Team, Member } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel } from '@/lib/constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel, RISK_STATUSES } from '@/lib/constants';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -42,6 +42,7 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
     progress: DEFAULT_KEY_RESULT.progress,
     confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
     initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init, tasks: []})),
+    risks: DEFAULT_KEY_RESULT.risks.map(risk => ({...risk})),
     assignees: [],
   };
   const minKrs = 2;
@@ -52,12 +53,13 @@ const getInitialKeyResultsForForm = (objective: Objective | null | undefined): K
       ...kr, 
       progress: kr.progress ?? 0,
       initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, tasks: init.tasks || []})) : [],
+      risks: kr.risks ? kr.risks.map(r => ({...r})) : [],
       assignees: kr.assignees || [],
     }));
   }
   
   while (krsToUse.length < minKrs) {
-    krsToUse.push({ ...defaultKrTemplate, initiatives: [], assignees: [] }); 
+    krsToUse.push({ ...defaultKrTemplate, initiatives: [], risks: [], assignees: [] }); 
   }
   return krsToUse;
 };
@@ -162,7 +164,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
                         size="icon" 
                         onClick={() => removeKr(krIndex)} 
                         className="text-destructive hover:bg-destructive/10 h-8 w-8"
-                        disabled={krFields.length <= 2}
+                        disabled={krFields.length <= 1}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -217,6 +219,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
                     </div>
 
                     <InitiativesArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
+                    <RisksArrayField control={form.control} krIndex={krIndex} register={form.register} errors={form.formState.errors} />
                   </CardContent>
                 </Card>
               ))}
@@ -225,7 +228,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط', assignees: []})} 
+                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط', assignees: [], risks: []})} 
                 className="mt-2 w-full"
                 disabled={krFields.length >= 5}
               >
@@ -296,4 +299,68 @@ function InitiativesArrayField({ control, krIndex, register, errors }: any) {
       </Button>
     </div>
   );
+}
+
+function RisksArrayField({ control, krIndex, register, errors }: any) {
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `keyResults.${krIndex}.risks`,
+    });
+
+    return (
+        <div className="mt-4 pt-4 border-t border-border/60 border-dashed">
+            <h4 className="text-md font-medium mb-3 text-foreground">ریسک‌ها و اقدامات اصلاحی</h4>
+            {fields.map((item, riskIndex) => (
+                <div key={item.id} className="p-3 mb-3 border rounded-md bg-red-500/10 border-destructive/20 space-y-3 shadow-sm">
+                    <div className="flex justify-between items-center">
+                        <Label htmlFor={`keyResults.${krIndex}.risks.${riskIndex}.description`} className="text-sm font-normal text-destructive">
+                            ریسک #{riskIndex + 1}
+                        </Label>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(riskIndex)} className="text-destructive hover:bg-destructive/10 h-7 w-7">
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                    
+                    <Textarea
+                        id={`keyResults.${krIndex}.risks.${riskIndex}.description`}
+                        {...register(`keyResults.${krIndex}.risks.${riskIndex}.description`)}
+                        placeholder="شرح ریسک"
+                        className="text-sm bg-card"
+                        rows={2}
+                    />
+                    {errors.keyResults?.[krIndex]?.risks?.[riskIndex]?.description && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex].risks[riskIndex].description.message}</p>}
+
+                     <Textarea
+                        id={`keyResults.${krIndex}.risks.${riskIndex}.correctiveAction`}
+                        {...register(`keyResults.${krIndex}.risks.${riskIndex}.correctiveAction`)}
+                        placeholder="شرح اقدام اصلاحی"
+                        className="text-sm bg-card"
+                        rows={2}
+                    />
+                    {errors.keyResults?.[krIndex]?.risks?.[riskIndex]?.correctiveAction && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex].risks[riskIndex].correctiveAction.message}</p>}
+
+                    <Controller
+                        name={`keyResults.${krIndex}.risks.${riskIndex}.status`}
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger className="text-sm h-9 bg-card">
+                                    <SelectValue placeholder="انتخاب وضعیت ریسک" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {RISK_STATUSES.map(status => (
+                                        <SelectItem key={status} value={status} className="text-sm">{status}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                    {errors.keyResults?.[krIndex]?.risks?.[riskIndex]?.status && <p className="text-destructive text-xs mt-1">{errors.keyResults[krIndex].risks[riskIndex].status.message}</p>}
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => append({ description: '', correctiveAction: '', status: 'فعال' })} className="mt-1 w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <PlusCircle className="w-4 h-4 ml-2" /> افزودن ریسک
+            </Button>
+        </div>
+    );
 }

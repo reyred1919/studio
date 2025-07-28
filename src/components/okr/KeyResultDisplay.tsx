@@ -1,13 +1,14 @@
-import type { KeyResult } from '@/types/okr';
+import type { KeyResult, Risk } from '@/types/okr';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { InitiativeDisplay } from './InitiativeDisplay';
-import { ListChecks, Zap, Smile, Meh, Frown, AlertTriangle } from 'lucide-react';
-import type { ConfidenceLevel } from '@/lib/constants';
+import { ListChecks, Zap, Smile, Meh, Frown, AlertTriangle, ShieldAlert } from 'lucide-react';
+import type { ConfidenceLevel, RiskStatus } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface KeyResultDisplayProps {
   keyResult: KeyResult;
@@ -19,6 +20,27 @@ const confidenceMeta: Record<ConfidenceLevel, { icon: React.ElementType, indicat
   'کم': { icon: Frown, indicatorClass: 'bg-orange-500', textClass: 'text-orange-600', label: 'کم' },
   'در معرض خطر': { icon: AlertTriangle, indicatorClass: 'bg-red-500', textClass: 'text-red-600', label: 'در معرض خطر' },
 };
+
+const riskStatusStyles: Record<RiskStatus, string> = {
+  'فعال': 'bg-red-100 text-red-700 border-red-300',
+  'در حال بررسی': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+  'حل شده': 'bg-green-100 text-green-700 border-green-300',
+};
+
+function RiskDisplay({ risk }: { risk: Risk }) {
+  const badgeClass = riskStatusStyles[risk.status] || riskStatusStyles['فعال'];
+  return (
+    <div className="flex flex-col gap-2 p-2.5 bg-background rounded-md border">
+        <div className="flex items-center justify-between">
+            <p className="text-sm text-foreground font-medium">{risk.description}</p>
+            <Badge variant="outline" className={cn("text-xs font-medium px-2 py-0.5", badgeClass)}>{risk.status}</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground pl-5 border-r-2 border-primary/50 pr-2">
+            <span className="font-semibold text-foreground">اقدام اصلاحی:</span> {risk.correctiveAction}
+        </p>
+    </div>
+  );
+}
 
 export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
   const confidence = confidenceMeta[keyResult.confidenceLevel];
@@ -56,8 +78,8 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-             <ConfidenceIcon className={`w-5 h-5 ${confidence.textClass}`} />
-            <Badge variant="outline" className={`text-xs ${confidence.textClass} border-current`}>{confidence.label}</Badge>
+             <ConfidenceIcon className={cn("w-5 h-5", confidence.textClass)} />
+            <Badge variant="outline" className={cn("text-xs border-current", confidence.textClass)}>{confidence.label}</Badge>
           </div>
         </div>
       </CardHeader>
@@ -67,11 +89,11 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
             <span>پیشرفت</span>
             <span>{keyResult.progress}%</span>
           </div>
-          <Progress value={keyResult.progress} className="h-2.5 rounded-full" indicatorClassName={`${confidence.indicatorClass} rounded-full`} />
+          <Progress value={keyResult.progress} className="h-2.5 rounded-full" indicatorClassName={cn("rounded-full", confidence.indicatorClass)} />
         </div>
         
-        {keyResult.initiatives.length > 0 && (
-          <Accordion type="single" collapsible className="w-full -mx-1">
+        <Accordion type="multiple" className="w-full -mx-1 space-y-1">
+          {keyResult.initiatives.length > 0 && (
             <AccordionItem value="initiatives" className="border-none">
               <AccordionTrigger className="text-xs font-medium py-1.5 px-1 hover:no-underline hover:bg-secondary/50 rounded-md [&[data-state=open]>svg]:text-accent">
                 <div className="flex items-center gap-1.5">
@@ -87,8 +109,26 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
                 </div>
               </AccordionContent>
             </AccordionItem>
-          </Accordion>
-        )}
+          )}
+
+          {keyResult.risks && keyResult.risks.length > 0 && (
+            <AccordionItem value="risks" className="border-none">
+              <AccordionTrigger className="text-xs font-medium py-1.5 px-1 hover:no-underline hover:bg-secondary/50 rounded-md [&[data-state=open]>svg]:text-destructive">
+                 <div className="flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
+                    {keyResult.risks.length} ریسک شناسایی شده
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2 pb-0 pl-1 pr-1">
+                <div className="space-y-1.5">
+                  {keyResult.risks.map(risk => (
+                    <RiskDisplay key={risk.id} risk={risk} />
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+        </Accordion>
       </CardContent>
     </Card>
   );

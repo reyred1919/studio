@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES } from './constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, RISK_STATUSES } from './constants';
 import { roleEnum } from './db/schema';
 
 export const memberSchema = z.object({
@@ -18,7 +18,7 @@ export const teamSchema = z.object({
 });
 
 export const taskSchema = z.object({
-  id: z.number().optional(),
+  id: z.string().optional(),
   description: z.string().min(1, "شرح وظیفه الزامی است.").max(200, "شرح وظیفه بیش از حد طولانی است."),
   completed: z.boolean().default(false),
 });
@@ -30,12 +30,20 @@ export const initiativeSchema = z.object({
   tasks: z.array(taskSchema).default([]),
 });
 
+export const riskSchema = z.object({
+    id: z.number().optional(),
+    description: z.string().min(1, "شرح ریسک الزامی است.").max(300, "شرح ریسک بیش از حد طولانی است."),
+    correctiveAction: z.string().min(1, "اقدام اصلاحی الزامی است.").max(300, "شرح اقدام اصلاحی بیش از حد طولانی است."),
+    status: z.enum(RISK_STATUSES, { required_error: "وضعیت ریسک الزامی است." }),
+});
+
 export const keyResultSchema = z.object({
   id: z.number().optional(),
   description: z.string().min(1, "شرح نتیجه کلیدی الزامی است").max(300, "شرح نتیجه کلیدی بیش از حد طولانی است"),
   progress: z.number().min(0, "پیشرفت باید بین ۰ و ۱۰۰ باشد").max(100, "پیشرفت باید بین ۰ و ۱۰۰ باشد").default(0).optional(),
   confidenceLevel: z.enum(CONFIDENCE_LEVELS, { required_error: "سطح اطمینان الزامی است." }),
   initiatives: z.array(initiativeSchema).default([]),
+  risks: z.array(riskSchema).default([]),
   assignees: z.array(memberSchema).optional().default([]),
 });
 

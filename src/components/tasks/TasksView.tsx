@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ListChecks, GanttChartSquare, Settings, AlertCircle, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { InitiativeStatus } from '@/lib/constants';
-import { INITIATIVE_STATUSES } from '@/lib/constants';
+import { getObjectives, updateInitiative } from '@/lib/actions'; // Import server actions
+import { useToast } from "@/hooks/use-toast";
 
 const ManageInitiativeDialog = dynamic(() => import('@/components/tasks/ManageInitiativeDialog').then(mod => mod.ManageInitiativeDialog), {
   loading: () => <p>در حال بارگذاری...</p>,
@@ -26,9 +28,9 @@ const statusStyles: Record<InitiativeStatus, string> = {
 // Represents a flattened initiative for easy rendering
 interface InitiativeViewModel {
   initiative: Initiative;
-  objectiveId: string;
+  objectiveId: number;
   objectiveDescription: string;
-  keyResultId: string;
+  keyResultId: number;
   keyResultDescription: string;
   shortCode: string;
 }
@@ -38,47 +40,34 @@ export function TasksView() {
   const [isMounted, setIsMounted] = useState(false);
   const [editingInitiative, setEditingInitiative] = useState<InitiativeViewModel | null>(null);
   const [isManageInitiativeDialogOpen, setIsManageInitiativeDialogOpen] = useState(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    let loadedObjectives: Objective[] = [];
-    const storedObjectives = localStorage.getItem('okrTrackerData_objectives_fa');
-    if (storedObjectives) {
-      try {
-        const parsedObjectives = JSON.parse(storedObjectives);
-        if (Array.isArray(parsedObjectives)) {
-          loadedObjectives = parsedObjectives;
-        }
-      } catch (error) {
-        console.error("Failed to parse objectives from localStorage", error);
-      }
-    }
-    
-    // Data migration: ensure all initiatives have a tasks array
-    const objectivesWithTasks = loadedObjectives.map(obj => ({
-      ...obj,
-      keyResults: obj.keyResults.map(kr => ({
-        ...kr,
-        initiatives: kr.initiatives.map(init => ({
-          ...init,
-          tasks: init.tasks || [],
+  const fetchData = useCallback(async () => {
+    setIsMounted(false);
+    const objectivesData = await getObjectives();
+    const objectivesWithDefaults = objectivesData.map(obj => ({
+        ...obj,
+        keyResults: obj.keyResults.map(kr => ({
+            ...kr,
+            initiatives: kr.initiatives.map(init => ({
+                ...init,
+                tasks: init.tasks || [], 
+            })),
         })),
-      })),
     }));
-    setObjectives(objectivesWithTasks);
+    setObjectives(objectivesWithDefaults);
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('okrTrackerData_objectives_fa', JSON.stringify(objectives));
-    }
-  }, [objectives, isMounted]);
+    fetchData();
+  }, [fetchData]);
 
   const initiativeViewModels = useMemo((): InitiativeViewModel[] => {
     const flatList: InitiativeViewModel[] = [];
     objectives.forEach((obj, objIndex) => {
       obj.keyResults.forEach((kr, krIndex) => {
-        kr.initiatives.forEach(init => {
+        (kr.initiatives || []).forEach(init => {
           flatList.push({
             initiative: init,
             objectiveId: obj.id,
@@ -103,74 +92,22 @@ export function TasksView() {
     setIsManageInitiativeDialogOpen(false);
   };
 
-  const handleSaveInitiative = useCallback((updatedInitiative: Initiative) => {
+  const handleSaveInitiative = async (updatedInitiative: Initiative) => {
     if (!editingInitiative) return;
 
-    const { objectiveId, keyResultId } = editingInitiative;
-
-    // 1. Recalculate progress and status for the initiative being saved
-    const finalInitiative = { ...updatedInitiative };
-
-    // Update status based on progress, but don't override 'Blocked'
-    if (finalInitiative.status !== 'مسدود شده') {
-      const totalTasks = finalInitiative.tasks.length;
-      const completedTasks = finalInitiative.tasks.filter(t => t.completed).length;
-      const initiativeProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-      
-      if (initiativeProgress === 100) {
-        finalInitiative.status = 'تکمیل شده';
-      } else if (initiativeProgress > 0 || completedTasks > 0) {
-        finalInitiative.status = 'در حال انجام';
-      } else {
-        finalInitiative.status = 'شروع نشده';
-      }
-    }
-
-    // 2. Create the new objectives array with updated KR progress
-    const newObjectives = objectives.map(obj => {
-      if (obj.id !== objectiveId) {
-        return obj;
-      }
-
-      // This is the target objective, find the KR and update it
-      const newKeyResults = obj.keyResults.map(kr => {
-        if (kr.id !== keyResultId) {
-          return kr;
-        }
-
-        // This is the target KR. Update its initiatives.
-        const initiativesForKr = kr.initiatives.map(init =>
-          init.id === finalInitiative.id ? finalInitiative : init
+    try {
+        await updateInitiative(
+            editingInitiative.objectiveId,
+            editingInitiative.keyResultId,
+            updatedInitiative
         );
-
-        // Recalculate KR progress based on its initiatives' progress
-        let avgKrProgress = 0;
-        if (initiativesForKr.length > 0) {
-            const totalInitiativeProgress = initiativesForKr.reduce((sum, init) => {
-              const iTotalTasks = init.tasks.length;
-              const iCompletedTasks = init.tasks.filter(t => t.completed).length;
-              const iProgress = iTotalTasks > 0 ? (iCompletedTasks / iTotalTasks) * 100 : 0;
-              return sum + iProgress;
-            }, 0);
-            avgKrProgress = totalInitiativeProgress / initiativesForKr.length;
-        }
-
-        return {
-          ...kr,
-          progress: Math.round(avgKrProgress), // round to nearest integer
-          initiatives: initiativesForKr,
-        };
-      });
-
-      return {
-        ...obj,
-        keyResults: newKeyResults,
-      };
-    });
-
-    setObjectives(newObjectives);
-    handleCloseDialog();
-  }, [editingInitiative, objectives]);
+        toast({ title: "اقدام به‌روزرسانی شد", description: "پیشرفت وظایف و نتیجه کلیدی مرتبط محاسبه و ذخیره شد." });
+        handleCloseDialog();
+        fetchData(); // Re-fetch all data to ensure UI consistency
+    } catch (error) {
+        toast({ title: "خطا", description: "در به‌روزرسانی اقدام خطایی روی داد.", variant: "destructive" });
+    }
+  };
 
 
   if (!isMounted) {

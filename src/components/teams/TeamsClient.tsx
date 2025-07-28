@@ -41,7 +41,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '../ui/skeleton';
-import { addTeam, deleteTeam, getTeamsForUser, updateTeam } from '@/lib/actions';
+import { addTeam, deleteTeam, getTeams, updateTeam } from '@/lib/actions';
 // import { useSession } from 'next-auth/react';
 import { Badge } from '../ui/badge';
 
@@ -173,7 +173,7 @@ export function TeamsClient() {
       }
       try {
         setIsLoading(true);
-        const userTeams = await getTeamsForUser(session.user.id);
+        const userTeams = await getTeams();
         setTeams(userTeams);
       } catch (error) {
         toast({ title: 'خطا', description: 'دریافت اطلاعات تیم‌ها با مشکل مواجه شد.', variant: 'destructive' });

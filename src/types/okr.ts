@@ -1,7 +1,7 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema, okrCycleFormSchema } from '@/lib/schemas';
+import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema, okrCycleFormSchema, calendarSettingsSchema, riskSchema } from '@/lib/schemas';
 import { roleEnum } from '@/lib/db/schema';
-import type { ConfidenceLevel, InitiativeStatus } from './constants';
+import type { ConfidenceLevel, InitiativeStatus, RiskStatus } from './constants';
 
 export type Role = z.infer<typeof roleEnum>;
 
@@ -25,7 +25,7 @@ export interface TeamWithMembership extends Team {
 
 
 export interface Task {
-  id: number;
+  id: string;
   description: string;
   completed: boolean;
 }
@@ -37,12 +37,20 @@ export interface Initiative {
   tasks: Task[];
 }
 
+export interface Risk {
+    id: number;
+    description: string;
+    correctiveAction: string;
+    status: RiskStatus;
+}
+
 export interface KeyResult {
   id: number;
   description: string;
   progress: number; // 0-100
   confidenceLevel: ConfidenceLevel;
   initiatives: Initiative[];
+  risks: Risk[];
   assignees: Member[];
 }
 
@@ -59,6 +67,7 @@ export type TeamFormData = z.infer<typeof teamSchema>;
 export type MemberFormData = z.infer<typeof memberSchema>;
 export type InitiativeFormData = z.infer<typeof initiativeSchema>;
 export type TaskFormData = z.infer<typeof taskSchema>;
+export type RiskFormData = z.infer<typeof riskSchema>;
 
 // Calendar specific types
 export interface OkrCycle {
@@ -76,7 +85,8 @@ export interface CalendarSettings {
   evaluationDate?: Date;
 }
 
-export type CalendarSettingsFormData = Omit<CalendarSettings, 'evaluationDate'> & { evaluationDate?: Date };
+export type CalendarSettingsFormData = z.infer<typeof calendarSettingsSchema>;
+
 
 export interface ScheduledMeeting {
     id: string;
