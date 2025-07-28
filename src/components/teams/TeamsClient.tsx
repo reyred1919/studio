@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -163,17 +163,16 @@ export function TeamsClient() {
   const [teams, setTeams] = useState<TeamWithMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isManageTeamDialogOpen, setIsManageTeamDialogOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editingTeam, setEditingTeam] = useState<TeamWithMembership | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    async function fetchTeams() {
+  const fetchTeams = useCallback(async () => {
       if (!session?.user?.id) {
           setIsLoading(false);
           return;
       }
-
       try {
+        setIsLoading(true);
         const userTeams = await getTeamsForUser(session.user.id);
         setTeams(userTeams);
       } catch (error) {
@@ -181,16 +180,19 @@ export function TeamsClient() {
       } finally {
         setIsLoading(false);
       }
-    }
+  }, [session?.user?.id, toast]);
+
+
+  useEffect(() => {
     fetchTeams();
-  }, [session?.user?.id]);
+  }, [fetchTeams]);
 
   const handleAddTeam = () => {
     setEditingTeam(null);
     setIsManageTeamDialogOpen(true);
   };
 
-  const handleEditTeam = (team: Team) => {
+  const handleEditTeam = (team: TeamWithMembership) => {
     setEditingTeam(team);
     setIsManageTeamDialogOpen(true);
   };
@@ -198,7 +200,7 @@ export function TeamsClient() {
   const handleDeleteTeamWrapper = async (teamId: number) => {
     try {
         await deleteTeam(teamId);
-        setTeams(prev => prev.filter(t => t.id !== teamId));
+        await fetchTeams(); // Refetch teams to update the UI
         toast({ title: "تیم حذف شد", description: "تیم مورد نظر با موفقیت حذف شد." });
     } catch(error) {
         toast({ title: "خطا در حذف تیم", description: (error as Error).message, variant: "destructive" });
@@ -213,17 +215,14 @@ export function TeamsClient() {
     try {
       if (editingTeam) {
         // Update logic
-        const updatedTeam = await updateTeam({ ...editingTeam, ...teamData });
-        if (updatedTeam) {
-            setTeams(prev => prev.map(t => t.id === updatedTeam.id ? { ...t, name: updatedTeam.name } : t));
-            toast({ title: "تیم به‌روزرسانی شد" });
-        }
+        await updateTeam({ ...editingTeam, ...teamData });
+        toast({ title: "تیم به‌روزرسانی شد" });
       } else {
         // Create logic
-        const newTeam = await addTeam({ name: teamData.name }, session.user.id);
-        setTeams(prev => [...prev, { ...newTeam, role: 'admin', members: [] }]); // simplified local state update
+        await addTeam({ name: teamData.name }, session.user.id);
         toast({ title: "تیم جدید ساخته شد" });
       }
+      await fetchTeams(); // Refetch teams to update the UI
     } catch (error) {
        toast({ title: "خطا", description: "ذخیره اطلاعات تیم با مشکل مواجه شد.", variant: 'destructive' });
     }
@@ -255,8 +254,8 @@ export function TeamsClient() {
     <>
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <h2 className="text-2xl font-semibold font-headline text-foreground">مدیریت تیم‌ها</h2>
-        <Button onClick={handleAddTeam} disabled>
-          <Plus className="h-4 w-4 ml-2" /> ایجاد تیم جدید (غیرفعال)
+        <Button onClick={handleAddTeam}>
+          <Plus className="h-4 w-4 ml-2" /> ایجاد تیم جدید
         </Button>
       </div>
 
@@ -265,8 +264,8 @@ export function TeamsClient() {
             <Users className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-semibold mb-2">هنوز تیمی ایجاد نشده است</h2>
             <p className="text-muted-foreground mb-6">با ایجاد اولین تیم خود، مدیریت همکاری را شروع کنید.</p>
-            <Button onClick={handleAddTeam} size="lg" disabled>
-                <Plus className="w-5 h-5 ml-2" /> ایجاد اولین تیم (غیرفعال)
+            <Button onClick={handleAddTeam} size="lg">
+                <Plus className="w-5 h-5 ml-2" /> ایجاد اولین تیم
             </Button>
         </div>
       ) : (
@@ -283,13 +282,13 @@ export function TeamsClient() {
                      <Badge variant={team.role === 'admin' ? 'default' : 'secondary'}>{team.role}</Badge>
                      {team.role === 'admin' && (
                         <>
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)} disabled>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleEditTeam(team)}>
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">ویرایش</span>
                             </Button>
                             <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" className="h-8 w-8" disabled>
+                                <Button variant="destructive" size="icon" className="h-8 w-8">
                                     <Trash2 className="h-4 w-4" />
                                     <span className="sr-only">حذف</span>
                                 </Button>

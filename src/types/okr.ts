@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema } from '@/lib/schemas';
+import type { objectiveFormSchema, teamSchema, memberSchema, initiativeSchema, taskSchema, okrCycleSchema, calendarSettingsSchema } from '@/lib/schemas';
 import { roleEnum } from '@/lib/db/schema';
 import { ConfidenceLevel, InitiativeStatus } from './constants';
 
@@ -63,4 +63,18 @@ export type TaskFormData = z.infer<typeof taskSchema>;
 export interface OkrCycle {
   startDate: Date;
   endDate: Date;
+}
+
+export type OkrCycleFormData = z.infer<typeof okrCycleSchema>;
+
+export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
+export type CalendarSettingsFormData = z.infer<typeof calendarSettingsSchema>;
+
+
+export interface ScheduledMeeting {
+    id: string;
+    date: Date;
+    type: 'check-in' | 'evaluation';
+    title: string;
+    status: 'past' | 'today' | 'future';
 }

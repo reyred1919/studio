@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES } from './constants';
+import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, MEETING_FREQUENCIES } from './constants';
 import { roleEnum } from './db/schema';
 
 export const memberSchema = z.object({
@@ -57,3 +57,19 @@ export const checkInFormSchema = z.object({
 });
 
 export type CheckInFormData = z.infer<typeof checkInFormSchema>;
+
+export const okrCycleSchema = z.object({
+    startDate: z.date({ required_error: "تاریخ شروع الزامی است." }),
+    endDate: z.date({ required_error: "تاریخ پایان الزامی است." }),
+}).refine(data => data.endDate > data.startDate, {
+    message: "تاریخ پایان باید بعد از تاریخ شروع باشد.",
+    path: ["root"], // You can also use "endDate" to show it under that field
+});
+
+const meetingFrequencies = MEETING_FREQUENCIES.map(f => f.value) as [string, ...string[]];
+
+export const calendarSettingsSchema = z.object({
+    frequency: z.enum(meetingFrequencies, { required_error: "فرکانس جلسات الزامی است." }),
+    checkInDayOfWeek: z.coerce.number().min(0).max(6, "روز هفته نامعتبر است."),
+    evaluationDate: z.date({ required_error: "تاریخ ارزیابی الزامی است." }).optional(),
+});
