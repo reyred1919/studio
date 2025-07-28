@@ -168,7 +168,6 @@ export function TeamsClient() {
 
   useEffect(() => {
     async function fetchTeams() {
-      setIsLoading(true);
       if (!session?.user?.id) {
           setIsLoading(false);
           return;
@@ -184,7 +183,7 @@ export function TeamsClient() {
       }
     }
     fetchTeams();
-  }, [session, toast]);
+  }, [session?.user?.id]);
 
   const handleAddTeam = () => {
     setEditingTeam(null);
