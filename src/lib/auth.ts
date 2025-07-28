@@ -3,17 +3,20 @@
 
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-// import { db } from '@/lib/db';
+
+// Note: Database-related logic is commented out to allow prototyping without a DB connection.
+// import { db } from './db';
 // import { teamMemberships, teams, users } from '../../drizzle/schema';
 // import { eq, and } from 'drizzle-orm';
-import { cookies } from 'next/headers';
-import { z } from 'zod';
+// import { cookies } from 'next/headers';
+// import { z } from 'zod';
 
+/*
 const invitationSchema = z.object({
     teamId: z.coerce.number().int().positive(),
     inviterId: z.string().uuid(),
 });
+*/
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -28,7 +31,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Mock user authentication
+        // Mock user authentication for prototyping
         const isMockUser = credentials.username === 'user' && credentials.password === 'password';
 
         if (isMockUser) {
@@ -39,32 +42,7 @@ export const authOptions: NextAuthOptions = {
             username: 'user',
           };
         }
-
-        /*
-        const user = await db.query.users.findFirst({
-          where: eq(users.username, credentials.username),
-        });
-
-        if (!user) {
-          return null;
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.hashedPassword
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
         
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-        };
-        */
        return null;
       },
     }),
@@ -91,72 +69,40 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  // Events are commented out as they depend on the database and invitation flow.
+  /*
   events: {
     async signIn({ user, isNewUser }) {
-        /*
       const cookieStore = cookies();
-      const utm_source = cookieStore.get('utm_source')?.value;
-      const utm_medium = cookieStore.get('utm_medium')?.value;
-      const utm_campaign = cookieStore.get('utm_campaign')?.value;
-
-      if (utm_campaign !== 'TEAMINVITATION' || !utm_source || !utm_medium) {
-        return;
-      }
+      const invitationCookie = cookieStore.get('invitation');
       
-      try {
-        const team = await db.query.teams.findFirst({
-          where: eq(teams.name, utm_medium)
-        });
+      if (invitationCookie) {
+        try {
+          const { teamId, inviterId } = invitationSchema.parse(JSON.parse(invitationCookie.value));
+          
+          const existingMembership = await db.query.teamMemberships.findFirst({
+            where: and(eq(teamMemberships.userId, user.id), eq(teamMemberships.teamId, teamId)),
+          });
 
-        if (!team) {
-            console.error(`Team with name ${utm_medium} not found.`);
-            return;
+          if (!existingMembership) {
+            await db.insert(teamMemberships).values({
+              teamId: teamId,
+              userId: user.id,
+              role: 'member',
+              invitedBy: inviterId,
+              invitationMedium: 'TEAMINVITATION',
+            });
+          }
+          
+          cookieStore.delete('invitation');
+          
+        } catch (error) {
+          console.error('Error processing invitation on sign-in:', error);
         }
-
-        const validation = invitationSchema.safeParse({ teamId: team.id, inviterId: utm_source });
-
-        if (!validation.success) {
-            console.error('Invalid invitation data from cookies:', validation.error);
-            return;
-        }
-
-        const { teamId, inviterId } = validation.data;
-
-        // Check if the user is already a member
-        const existingMembership = await db.query.teamMemberships.findFirst({
-            where: and(
-                eq(teamMemberships.userId, user.id),
-                eq(teamMemberships.teamId, teamId)
-            )
-        });
-
-        if (existingMembership) {
-            console.log(`User ${user.id} is already a member of team ${teamId}.`);
-            return; // Already a member, do nothing
-        }
-
-        // Add the new user to the team
-        await db.insert(teamMemberships).values({
-          userId: user.id,
-          teamId: teamId,
-          role: 'member',
-          invitedBy: inviterId,
-          invitationMedium: utm_campaign
-        });
-
-        console.log(`User ${user.id} successfully added to team ${teamId}.`);
-
-      } catch (error) {
-        console.error('Error processing team invitation during signIn:', error);
-      } finally {
-        // Clean up cookies after processing
-        cookieStore.delete('utm_source');
-        cookieStore.delete('utm_medium');
-        cookieStore.delete('utm_campaign');
       }
-      */
     }
   }
+  */
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
