@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Lightbulb, Sparkles } from 'lucide-react';
 import type { Objective } from '@/types/okr';
-import { suggestOkrsImprovements, type SuggestOkrsImprovementsOutput } from '@/ai/flows/suggest-okr-improvements';
+import { getOkrImprovementSuggestionsAction } from '@/lib/actions';
 import { CONFIDENCE_LEVELS, type ConfidenceLevel } from '@/lib/constants';
 import { checkInFormSchema, type CheckInFormData } from '@/lib/schemas';
 import { useToast } from "@/hooks/use-toast";
@@ -64,6 +64,8 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
   };
 
   const handleGetAiSuggestions = async () => {
+    if (!objective) return; // Guard against null objective
+
     setIsLoadingAiSuggestions(true);
     setAiSuggestions([]);
     
@@ -77,18 +79,7 @@ export function CheckInModal({ isOpen, onClose, objective, onUpdateObjective }: 
     };
 
     try {
-      const result: SuggestOkrsImprovementsOutput = await suggestOkrsImprovements({
-          objectiveDescription: currentObjectiveState.description,
-          keyResults: currentObjectiveState.keyResults.map(kr => ({
-              keyResultDescription: kr.description,
-              progress: kr.progress,
-              confidenceLevel: kr.confidenceLevel,
-              initiatives: kr.initiatives.map(init => ({
-                  initiativeDescription: init.description,
-                  status: init.status,
-              })),
-          })),
-      });
+      const result = await getOkrImprovementSuggestionsAction(currentObjectiveState);
 
       if (result && result.suggestions && result.suggestions.length > 0) {
         setAiSuggestions(result.suggestions);

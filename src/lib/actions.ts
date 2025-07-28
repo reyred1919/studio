@@ -8,7 +8,7 @@ import {
   teamMemberships,
   users,
   invitationLinks,
-} from '../../drizzle/schema';
+} from '../drizzle/schema';
 import { auth } from '@/lib/auth';
 import { and, eq } from 'drizzle-orm';
 */
@@ -123,6 +123,7 @@ export async function getOkrImprovementSuggestionsAction(
     return suggestions;
   } catch (error) {
     console.error("Error in getOkrImprovementSuggestionsAction:", error);
-    return { suggestions: ["An error occurred while fetching suggestions. Please try again later."] };
+    // It's better to return a structured error or a specific message.
+    return { suggestions: ["An error occurred while fetching AI suggestions. Please try again later."] };
   }
 }
