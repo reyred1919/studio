@@ -1,15 +1,18 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
-// This middleware is temporarily simplified for prototyping.
-// It avoids complex dependencies that can cause issues in the Edge Runtime.
-export function middleware(request: NextRequest) {
-  return NextResponse.next();
-}
+export default auth;
 
 export const config = {
-  // Applying the middleware to all routes except for static assets
-  // and internal Next.js paths.
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Applying the middleware to all routes except for static assets,
+  // internal Next.js paths, and public pages like login or landing.
+  matcher: [
+    '/dashboard/:path*',
+    '/objectives/:path*',
+    '/teams/:path*',
+    '/tasks/:path*',
+    '/calendar/:path*',
+    '/timeline/:path*',
+    '/(app)/?$', // The root of the app section
+  ],
 };

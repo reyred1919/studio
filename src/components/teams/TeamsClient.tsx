@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
@@ -42,12 +42,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '../ui/skeleton';
 import { addTeam, deleteTeam, getTeams, updateTeam } from '@/lib/actions';
-// import { useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { Badge } from '../ui/badge';
-
-
-const generateId = () => crypto.randomUUID();
-
 
 function ManageTeamDialog({
   isOpen,
@@ -62,7 +58,6 @@ function ManageTeamDialog({
 }) {
   const {
     register,
-    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -70,7 +65,7 @@ function ManageTeamDialog({
     resolver: zodResolver(teamSchema.omit({ id: true, ownerId: true, invitationLink: true })),
     defaultValues: {
       name: '',
-      members: [], // Members are not managed in this dialog anymore
+      members: [],
     },
   });
 
@@ -156,10 +151,8 @@ function InvitationLinkDisplay({ link }: { link: string | null | undefined }) {
   );
 }
 
-
 export function TeamsClient() {
-  // const { data: session } = useSession();
-  const session = { user: { id: 'mock-user-id', name: 'کاربر تستی' }}; // Mock session
+  const { data: session } = useSession();
   const [teams, setTeams] = useState<TeamWithMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isManageTeamDialogOpen, setIsManageTeamDialogOpen] = useState(false);
