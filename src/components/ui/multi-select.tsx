@@ -20,12 +20,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Member } from '@/types/okr';
 
-export type MultiSelectOption = {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-};
+export type MultiSelectOption = Pick<Member, 'id' | 'name'>;
+
 
 interface MultiSelectProps {
   options: MultiSelectOption[];
@@ -55,7 +53,7 @@ export function MultiSelect({
     }
   };
   
-  const handleRemove = (optionId: string, e: React.MouseEvent) => {
+  const handleRemove = (optionId: number | string, e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(selected.filter(s => s.id !== optionId));
   };
@@ -92,7 +90,7 @@ export function MultiSelect({
                 </Badge>
               ))
             ) : (
-              <span>{placeholder}</span>
+              <span className="text-muted-foreground">{placeholder}</span>
             )}
           </div>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />

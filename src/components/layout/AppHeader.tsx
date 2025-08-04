@@ -1,6 +1,8 @@
+
 import type React from 'react';
 import { Target } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import AuthButton from '@/components/auth/AuthButton';
 
 export function AppHeader() {
   return (
@@ -13,7 +15,7 @@ export function AppHeader() {
             <h1 className="text-xl font-headline font-semibold text-foreground">ردیاب OKR</h1>
           </div>
         </div>
-        {/* The "Add Objective" button will be moved to OkrDashboardClient */}
+        <AuthButton />
       </div>
     </header>
   );

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -13,7 +14,6 @@ import {
   isBefore,
   isSameDay,
   isToday,
-  parseISO,
   setDay,
   startOfDay,
 } from 'date-fns';
@@ -35,9 +35,8 @@ import { cn } from "@/lib/utils";
 import type { OkrCycle, CalendarSettings, ScheduledMeeting, CalendarSettingsFormData } from '@/types/okr';
 import { calendarSettingsSchema } from '@/lib/schemas';
 import { MEETING_FREQUENCIES, PERSIAN_WEEK_DAYS } from '@/lib/constants';
+import { getOkrCycle, saveOkrCycle, getCalendarSettings, saveCalendarSettings } from '@/lib/data/actions';
 
-const CALENDAR_SETTINGS_STORAGE_KEY = 'okrCalendarSettings_fa';
-const OKR_CYCLE_STORAGE_KEY = 'okrTrackerData_cycle_fa';
 
 function isPast(date: Date): boolean {
   return isBefore(endOfDay(date), startOfDay(new Date()));
@@ -47,6 +46,7 @@ export function CalendarView() {
   const [isMounted, setIsMounted] = useState(false);
   const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const { control, handleSubmit, reset, watch, formState: { errors }, setValue } = useForm<CalendarSettingsFormData>({
@@ -56,88 +56,63 @@ export function CalendarView() {
       checkInDayOfWeek: 6, 
     }
   });
-
-  const watchedCheckInDay = watch('checkInDayOfWeek');
-  const watchedEvaluationDate = watch('evaluationDate');
-
+  
   useEffect(() => {
-    const storedCycle = localStorage.getItem(OKR_CYCLE_STORAGE_KEY);
-    if (storedCycle) {
+    const loadData = async () => {
+      setIsLoading(true);
       try {
-        const parsedCycle = JSON.parse(storedCycle) as { startDate: string; endDate: string };
-        if (parsedCycle.startDate && parsedCycle.endDate) {
+        const [cycleData, settingsData] = await Promise.all([
+          getOkrCycle(),
+          getCalendarSettings(),
+        ]);
+        
+        if (cycleData) {
           setOkrCycle({
-            startDate: parseISO(parsedCycle.startDate),
-            endDate: parseISO(parsedCycle.endDate),
+            startDate: new Date(cycleData.startDate),
+            endDate: new Date(cycleData.endDate),
           });
         }
-      } catch (error) {
-        console.error("Failed to parse OKR cycle from localStorage", error);
-      }
-    }
 
-    const storedSettings = localStorage.getItem(CALENDAR_SETTINGS_STORAGE_KEY);
-    if (storedSettings) {
-      try {
-        const parsedSettings: CalendarSettings = JSON.parse(storedSettings);
-        if (parsedSettings.evaluationDate) {
-          parsedSettings.evaluationDate = parseISO(parsedSettings.evaluationDate as unknown as string);
+        if (settingsData) {
+          const parsedSettings = {
+            ...settingsData,
+            evaluationDate: settingsData.evaluationDate ? new Date(settingsData.evaluationDate) : undefined,
+          };
+          setCalendarSettings(parsedSettings);
+          reset(parsedSettings);
         }
-        reset({
-          frequency: parsedSettings.frequency,
-          checkInDayOfWeek: parsedSettings.checkInDayOfWeek,
-          evaluationDate: parsedSettings.evaluationDate,
-        });
-        setCalendarSettings(parsedSettings);
       } catch (error) {
-        console.error("Failed to parse calendar settings from localStorage", error);
+        console.error("Failed to load calendar data", error);
+        toast({ variant: 'destructive', title: 'خطا در بارگذاری داده‌ها' });
+      } finally {
+        setIsLoading(false);
+        setIsMounted(true);
       }
-    }
-    setIsMounted(true);
-  }, [reset]);
-
-  useEffect(() => {
-    if (isMounted && calendarSettings) {
-      const settingsToStore = {
-        ...calendarSettings,
-        evaluationDate: calendarSettings.evaluationDate ? calendarSettings.evaluationDate.toISOString() : undefined,
-      };
-      localStorage.setItem(CALENDAR_SETTINGS_STORAGE_KEY, JSON.stringify(settingsToStore));
-    }
-  }, [calendarSettings, isMounted]);
-
-  useEffect(() => {
-    if (!isMounted) return;
-
-    const currentOkrCycleEndDate = okrCycle?.endDate;
-    const formCheckInDayOfWeek = typeof watchedCheckInDay === 'string' ? parseInt(watchedCheckInDay, 10) : watchedCheckInDay;
-
-    if (currentOkrCycleEndDate && typeof formCheckInDayOfWeek === 'number' && !isNaN(formCheckInDayOfWeek) && watchedEvaluationDate === undefined) {
-      let suggestedDate = setDay(currentOkrCycleEndDate, formCheckInDayOfWeek, { locale: faIR, weekStartsOn: 6 });
-      suggestedDate = startOfDay(suggestedDate);
-
-      if (isAfter(suggestedDate, currentOkrCycleEndDate)) {
-        suggestedDate = addWeeks(suggestedDate, -1);
-      }
-
-      if (okrCycle?.startDate && !isBefore(suggestedDate, startOfDay(okrCycle.startDate))) {
-        setValue('evaluationDate', suggestedDate, { shouldValidate: true, shouldDirty: true });
-      }
-    }
-  }, [isMounted, okrCycle, watchedCheckInDay, watchedEvaluationDate, setValue]);
-
-
-  const handleSaveSettings = (data: CalendarSettingsFormData) => {
-    const newSettings: CalendarSettings = {
-      frequency: data.frequency,
-      checkInDayOfWeek: data.checkInDayOfWeek,
-      evaluationDate: data.evaluationDate,
     };
-    setCalendarSettings(newSettings);
-    toast({
-      title: "تنظیمات ذخیره شد",
-      description: "تنظیمات تقویم جلسات شما با موفقیت ذخیره شد.",
-    });
+
+    loadData();
+  }, [reset, toast]);
+
+
+  const handleSaveSettings = async (data: CalendarSettingsFormData) => {
+    try {
+      await saveCalendarSettings(data);
+      const newSettings: CalendarSettings = {
+        ...data,
+        evaluationDate: data.evaluationDate ? new Date(data.evaluationDate) : undefined,
+      };
+      setCalendarSettings(newSettings);
+      toast({
+        title: "تنظیمات ذخیره شد",
+        description: "تنظیمات تقویم جلسات شما با موفقیت ذخیره شد.",
+      });
+    } catch(e) {
+       toast({
+        variant: "destructive",
+        title: "خطا در ذخیره سازی",
+        description: "مشکلی در ذخیره تنظیمات تقویم رخ داده است.",
+      });
+    }
   };
 
   const scheduledMeetings = useMemo((): ScheduledMeeting[] => {
@@ -198,7 +173,7 @@ export function CalendarView() {
     return meetings.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [okrCycle, calendarSettings]);
 
-  if (!isMounted) {
+  if (isLoading || !isMounted) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
@@ -222,7 +197,7 @@ export function CalendarView() {
         <Alert variant="destructive" className="max-w-md text-center">
           <AlertTitle className="font-semibold">چرخه OKR تنظیم نشده است</AlertTitle>
           <AlertDescription>
-            برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/dashboard" className="font-medium text-primary hover:underline">داشبورد</Link> تنظیم کنید.
+            برای استفاده از تقویم، ابتدا باید یک چرخه OKR (تاریخ شروع و پایان) در صفحه <Link href="/objectives" className="font-medium text-primary hover:underline">مدیریت اهداف</Link> تنظیم کنید.
           </AlertDescription>
         </Alert>
       </div>
@@ -271,7 +246,7 @@ export function CalendarView() {
                 control={control}
                 render={({ field }) => (
                   <Select
-                      onValueChange={(value) => field.onChange(value)}
+                      onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value !== undefined ? String(field.value) : undefined}
                   >
                     <SelectTrigger id="checkInDayOfWeek" className="mt-1">

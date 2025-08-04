@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import type { KeyResult, Risk } from '@/types/okr';
+=======
+
+import type { KeyResult } from '@/types/okr';
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -62,7 +67,7 @@ export function KeyResultDisplay({ keyResult }: KeyResultDisplayProps) {
                         <Tooltip key={assignee.id}>
                           <TooltipTrigger asChild>
                             <Avatar className="h-6 w-6 border-2 border-card">
-                              <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
+                              {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />}
                               <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                           </TooltipTrigger>

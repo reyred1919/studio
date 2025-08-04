@@ -17,13 +17,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, PlusCircle, ChevronsUpDown } from 'lucide-react';
-import type { Objective, ObjectiveFormData, KeyResult, Team, Member } from '@/types/okr';
+import { Trash2, PlusCircle } from 'lucide-react';
+import type { Objective, ObjectiveFormData, Member, Team } from '@/types/okr';
 import { objectiveFormSchema } from '@/lib/schemas';
 import { CONFIDENCE_LEVELS, INITIATIVE_STATUSES, DEFAULT_KEY_RESULT, type ConfidenceLevel, RISK_STATUSES } from '@/lib/constants';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface ManageObjectiveDialogProps {
   isOpen: boolean;
@@ -38,28 +36,45 @@ type KeyResultFormData = ObjectiveFormData['keyResults'][number];
 
 const getInitialKeyResultsForForm = (objective: Objective | null | undefined): KeyResultFormData[] => {
   const defaultKrTemplate: KeyResultFormData = { 
+<<<<<<< HEAD
     description: DEFAULT_KEY_RESULT.description,
     progress: DEFAULT_KEY_RESULT.progress,
     confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط' as ConfidenceLevel,
     initiatives: DEFAULT_KEY_RESULT.initiatives.map(init => ({...init, tasks: []})),
     risks: DEFAULT_KEY_RESULT.risks.map(risk => ({...risk})),
+=======
+    description: '',
+    progress: 0,
+    confidenceLevel: 'متوسط' as ConfidenceLevel,
+    initiatives: [],
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
     assignees: [],
   };
-  const minKrs = 2;
+  const minKrs = 1;
   let krsToUse: KeyResultFormData[] = [];
 
   if (objective && objective.keyResults && objective.keyResults.length > 0) {
     krsToUse = objective.keyResults.map(kr => ({ 
-      ...kr, 
+      id: kr.id,
+      description: kr.description,
       progress: kr.progress ?? 0,
+<<<<<<< HEAD
       initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, tasks: init.tasks || []})) : [],
       risks: kr.risks ? kr.risks.map(r => ({...r})) : [],
+=======
+      confidenceLevel: kr.confidenceLevel,
+      initiatives: kr.initiatives ? kr.initiatives.map(init => ({...init, id: init.id, tasks: init.tasks || []})) : [],
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
       assignees: kr.assignees || [],
     }));
   }
   
   while (krsToUse.length < minKrs) {
+<<<<<<< HEAD
     krsToUse.push({ ...defaultKrTemplate, initiatives: [], risks: [], assignees: [] }); 
+=======
+    krsToUse.push({ ...defaultKrTemplate }); 
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
   }
   return krsToUse;
 };
@@ -80,16 +95,25 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
 
   useEffect(() => {
     if (isOpen) {
+<<<<<<< HEAD
       const defaultValues = initialData
         ? { ...initialData, description: initialData.description || '', teamId: initialData.teamId, keyResults: getInitialKeyResultsForForm(initialData), cycleId: initialData.cycleId }
         : { description: '', teamId: undefined, keyResults: getInitialKeyResultsForForm(null), cycleId: cycleId };
       form.reset(defaultValues);
     }
   }, [isOpen, initialData, teams, cycleId, form.reset]);
+=======
+      const defaultValues: ObjectiveFormData = initialData
+        ? { id: initialData.id, description: initialData.description || '', teamId: String(initialData.teamId), keyResults: getInitialKeyResultsForForm(initialData) }
+        : { description: '', teamId: teams[0]?.id.toString() || '', keyResults: getInitialKeyResultsForForm(null) };
+      form.reset(defaultValues);
+    }
+  }, [isOpen, initialData, teams, form]);
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
   
   useEffect(() => {
     if (selectedTeamId) {
-      const team = teams.find(t => t.id === selectedTeamId);
+      const team = teams.find(t => t.id === parseInt(selectedTeamId));
       setTeamMembers(team ? team.members : []);
     } else {
       setTeamMembers([]);
@@ -103,8 +127,6 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
     onClose(); 
   };
   
-  const selectedTeam = teams.find(t => t.id === selectedTeamId);
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -140,7 +162,7 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
                         </SelectTrigger>
                         <SelectContent>
                           {teams.map(team => (
-                            <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                            <SelectItem key={team.id} value={String(team.id)}>{team.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -228,9 +250,13 @@ export function ManageObjectiveDialog({ isOpen, onClose, onSubmit, initialData, 
               <Button 
                 type="button" 
                 variant="outline" 
+<<<<<<< HEAD
                 onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: DEFAULT_KEY_RESULT.confidenceLevel || 'متوسط', assignees: [], risks: []})} 
+=======
+                onClick={() => appendKr({...DEFAULT_KEY_RESULT, confidenceLevel: 'متوسط', assignees: []})} 
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
                 className="mt-2 w-full"
-                disabled={krFields.length >= 5}
+                disabled={krFields.length >= 7}
               >
                 <PlusCircle className="w-4 h-4 ml-2" /> افزودن نتیجه کلیدی
               </Button>

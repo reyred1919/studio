@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { SessionProvider } from 'next-auth/react';
 import {
   Sidebar,
   SidebarContent,
@@ -50,8 +51,12 @@ function AppLayoutContent({ children }: AppLayoutProps) {
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} passHref legacyBehavior>
                   <SidebarMenuButton
+<<<<<<< HEAD
                     as="a"
                     isActive={pathname === item.href}
+=======
+                    isActive={pathname.startsWith(item.href)}
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
                     tooltip={{ children: item.label, side: 'left', className: 'font-body' }}
                   >
                     <item.icon className="h-5 w-5" />
@@ -78,8 +83,10 @@ function AppLayoutContent({ children }: AppLayoutProps) {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <SidebarProvider>
-      <AppLayoutContent>{children}</AppLayoutContent>
-    </SidebarProvider>
+    <SessionProvider>
+      <SidebarProvider>
+        <AppLayoutContent>{children}</AppLayoutContent>
+      </SidebarProvider>
+    </SessionProvider>
   );
 }

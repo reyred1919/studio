@@ -7,11 +7,16 @@ import type { ConfidenceLevel } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight } from 'lucide-react';
+import { Target, TrendingUp, Clock, ArrowRight, GanttChartSquare, Smile, Meh, Frown, AlertTriangle, ChevronsRight, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { faIR } from 'date-fns/locale';
 import Link from 'next/link';
+<<<<<<< HEAD
 import { getActiveOkrCycle, getObjectives } from '@/lib/actions';
+=======
+import { useSession } from 'next-auth/react';
+import { getObjectives, getOkrCycle } from '@/lib/data/actions';
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
 
 const getProgressIndicatorClass = (progress: number): string => {
     if (progress >= 75) return 'bg-green-500';
@@ -34,7 +39,9 @@ const getProgressIcon = (progress: number) => {
 
 
 export function DashboardView() {
+  const { data: session, status } = useSession();
   const [objectives, setObjectives] = useState<Objective[]>([]);
+<<<<<<< HEAD
   const [activeCycle, setActiveCycle] = useState<OkrCycle | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -57,6 +64,39 @@ export function DashboardView() {
     }
     fetchData();
   }, []);
+=======
+  const [okrCycle, setOkrCycle] = useState<OkrCycle | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          const [objectivesData, cycleData] = await Promise.all([
+            getObjectives(),
+            getOkrCycle(),
+          ]);
+          setObjectives(objectivesData);
+          if (cycleData) {
+            setOkrCycle({
+              startDate: new Date(cycleData.startDate),
+              endDate: new Date(cycleData.endDate),
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load dashboard data", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadData();
+    }
+    if (status === 'unauthenticated') {
+        setIsLoading(false);
+    }
+  }, [status]);
+>>>>>>> 800eae5690277b2cebf730d06dc49029ba9a5719
 
   const summaryStats = useMemo(() => {
     let totalProgressSum = 0;
@@ -77,7 +117,7 @@ export function DashboardView() {
         'در معرض خطر': { icon: AlertTriangle, colorClass: 'text-red-600' },
     };
 
-    const objectivesWithProgress: { id: string; description: string; progress: number }[] = [];
+    const objectivesWithProgress: { id: string | number; description: string; progress: number }[] = [];
 
     const filteredObjectives = activeCycle 
         ? objectives.filter(obj => obj.cycleId === activeCycle.id)
@@ -155,10 +195,10 @@ export function DashboardView() {
     };
   }, [objectives, activeCycle]);
 
-  if (!isMounted) {
+  if (isLoading || status === 'loading') {
      return (
        <div className="flex flex-col items-center justify-center h-[60vh]">
-         <TrendingUp className="w-16 h-16 text-primary mb-6 animate-pulse" />
+         <Loader2 className="w-16 h-16 text-primary mb-6 animate-spin" />
          <h1 className="text-2xl font-semibold text-muted-foreground">در حال بارگذاری داشبورد...</h1>
        </div>
      );
