@@ -13,6 +13,6 @@ export const config = {
     '/tasks/:path*',
     '/calendar/:path*',
     '/timeline/:path*',
-    '/(app)/?$', // The root of the app section
+    '/', // Match the root of the app
   ],
 };
